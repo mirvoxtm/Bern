@@ -1,13 +1,17 @@
 # Bern
 
-<img src="img/logo.png" alt="Bern Logo" width="200"/>
+<img src="img/logo.png" alt="Bern Logo" width="400"/>
 
 **An interpreted, dynamically typed programming language**
 
-<img alt="Status" src="https://img.shields.io/badge/Status-Development%20(Pre--Alpha)-red">
-<img alt="Built With" src="https://img.shields.io/badge/Built%20With-Haskell-purple">
-
-
+<p align="center">
+  <a href="https://miragem.app.br/">
+    <img alt="Project Status" src="https://img.shields.io/badge/Status-Development%20(Pre--Alpha)-red"
+  ></a>
+  <a href="#technology">
+    <img alt="Language" src="https://img.shields.io/badge/Built%20With-Haskell-purple"
+  ></a>
+</p>
 ## About
 
 Bern is a small, interpreted, dynamically typed programming language focused on clarity and expressiveness.
