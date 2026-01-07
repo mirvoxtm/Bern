@@ -47,3 +47,33 @@ else if score >= 70 then
 else
     "You need to improve."
 end
+
+"\n_____________________________________________________________\n"
+"[3. Nested If Statements]"
+"You can also nest If statements within each other."
+"For example:"
+"numbers = [1..100]"
+"for n : numbers do "
+"    if n % 15 == 0 then "
+"        \"FizzBuzz\""
+"    else if n % 3 == 0 then"
+"        \"Fizz\""
+"    else if n % 5 == 0 then"
+"        \"Buzz\""
+"    else"
+"        n"
+"end"
+
+"\nResult:"
+numbers = [1..100]
+for n : numbers do 
+    if n % 15 == 0 then 
+        "FizzBuzz"
+    else if n % 3 == 0 then
+        "Fizz"
+    else if n % 5 == 0 then
+        "Buzz"
+    else
+        n
+    end
+end

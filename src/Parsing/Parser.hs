@@ -117,6 +117,7 @@ operatorTable =
             ]
         , [ binary "*" Multiply
             , binary "/" Divide
+            , binary "%" Modulo
             ]
         , [ binary "+" Add
             , binary "-" Subtract

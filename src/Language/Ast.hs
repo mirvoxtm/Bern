@@ -10,6 +10,7 @@ module Language.Ast where
                          | Subtract      -- (-)
                          | Multiply      -- (*)
                          | Divide        -- (/)
+                         | Modulo        -- (%)
                          | Equal         -- (==)
                          | Different     -- (!=) or (~=)
                          | And           -- (&&)

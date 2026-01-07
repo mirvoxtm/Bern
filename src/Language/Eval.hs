@@ -201,6 +201,7 @@ isArithmetic Add = True
 isArithmetic Subtract = True
 isArithmetic Multiply = True
 isArithmetic Divide = True
+isArithmetic Modulo = True
 isArithmetic _ = False
 
 isUnion :: BinaryOperation -> Bool
@@ -350,6 +351,12 @@ evalArith Divide (Double l) (Integer r)
     -- Not A Number when attempting to divide by Zero
     | r == 0    = Right NaN
     | otherwise = Right (Double (l / fromIntegral r))
+-- (x % y)
+evalArith Modulo (Integer l) (Integer r)
+    | r == 0    = Right NaN
+    | otherwise = Right (Integer (l `mod` r))
+evalArith Modulo _ _ = Left "Type error: modulo requires integers"
+
 -- Map scalar division over list elements
 evalArith Divide (List vals len) scalar@(Integer r)
     | r == 0 = Right (List (replicate len NaN) len)
@@ -380,6 +387,28 @@ evalArith Divide (List l1 len1) (List l2 len2) =
     isRight _        = False
     fromRight (Right v) = v
     fromRight _         = error "Unexpected Left value"
+
+evalArith Modulo (Integer l) (Integer r)
+    | r == 0    = Right NaN
+    | otherwise = Right (Integer (l `mod` r))
+
+evalArith Modulo (Double l) (Double r)
+    | r == 0.0  = Right NaN
+    | otherwise = Right (Double (mod' l r))
+  where
+    mod' x y = x - y * fromIntegral (floor (x / y))
+
+evalArith Modulo (Integer l) (Double r)
+    | r == 0.0  = Right NaN
+    | otherwise = Right (Double (mod' (fromIntegral l) r))
+  where
+    mod' x y = x - y * fromIntegral (floor (x / y))
+
+evalArith Modulo (Double l) (Integer r)
+    | r == 0    = Right NaN
+    | otherwise = Right (Double (mod' l (fromIntegral r)))
+  where
+    mod' x y = x - y * fromIntegral (floor (x / y))
 
 -- Unsupported types for arithmetic operations
 evalArith _ _ _ = Left "Type error in arithmetic operation"
