@@ -1,0 +1,49 @@
+"_____________________________________________________________"
+"Bern has support for conditionals, which are used to execute code"
+"based on certain conditions."
+"\n_____________________________________________________________\n"
+
+"[1. If-Then-Else Statement]"
+"The If-Then-Else statement allows you to execute code based on a condition."
+"For example:"
+"age = 18"
+"if age >= 18 then"
+"    \"You are an adult.\""
+"else"
+"    \"You are a minor.\""
+"end"
+
+"\nResult:"
+age = 18
+if age >= 18 then
+    "You are an adult."
+else
+    "You are a minor."
+end
+
+"\n_____________________________________________________________\n"
+"[2. Else-If Statement]"
+"The Else-If statement allows you to check multiple conditions."
+"For example:"
+"score = 85"
+"if score >= 90 then"
+"    \"You got an A.\""
+"else if score >= 80 then"
+"    \"You got a B.\""
+"else if score >= 70 then"
+"    \"You got a C.\""
+"else"
+"    \"You need to improve.\""
+"end"
+
+"\nResult:"
+score = 85
+if score >= 90 then
+    "You got an A."
+else if score >= 80 then
+    "You got a B."
+else if score >= 70 then
+    "You got a C."
+else
+    "You need to improve."
+end

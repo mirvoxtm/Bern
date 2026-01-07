@@ -1,38 +1,55 @@
 module Main where
 
 import System.IO (hFlush, hSetBuffering, BufferMode(NoBuffering), stdout, stdin)
+import System.Environment (getArgs)
+import System.Exit (exitFailure)
 import Language.Ast
 import Language.Eval
 import Data.Hashtable.Hashtable
+import Language.Helpers
 import Parsing.Parser
 
 initialTable :: Hashtable String Value
-initialTable =
-  insertHashtable
-    (insertHashtable emptyHashtable "x" (Integer 42))
-    "flag"
-    (Boolean True)
+initialTable = emptyHashtable
 
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
   hSetBuffering stdin NoBuffering
-  putStrLn "| Welcome to Bern."
-  repl initialTable
+  args <- getArgs
+  case args of
+    [filename] -> runFile filename
+    []         -> do
+      putStrLn "| Welcome to Bern."
+      repl initialTable
+    _ -> putStrLn "Usage: bern [filename.brn]"
+
+-- Run a file
+runFile :: FilePath -> IO ()
+runFile path = do
+  contents <- readFile path
+  case parseBernFile contents of
+    Left err -> putStrLn ("Parse error: " ++ show err) >> exitFailure
+    Right cmd -> do
+      _ <- interpretCommand cmd initialTable
+      return ()
 
 repl :: Hashtable String Value -> IO ()
 repl table = do
   putStr "|> "
   hFlush stdout
   line <- getLine
-  case parseBern line of
-    Left err -> putStrLn ("Parse error: " ++ show err) >> repl table
-    Right cmd -> do
-      newTable <- interpretCommand cmd table
-      repl newTable
+  -- Skip empty lines
+  if null line || all (== ' ') line
+    then repl table
+    else case parseBern line of
+      Left err -> putStrLn ("Parse error: " ++ show err) >> exitFailure
+      Right cmd -> do
+        newTable <- interpretCommand cmd table
+        repl newTable
 
 printEval :: Expression -> IO ()
 printEval expr =
   case evaluate expr initialTable of
-    Right v  -> print v
+    Right v  -> print (getValueOnly v)
     Left err -> putStrLn ("Error: " ++ err)

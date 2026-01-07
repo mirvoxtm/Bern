@@ -1,0 +1,27 @@
+"_____________________________________________________________"
+"Hello! This is a test file for Bern."
+"In Bern, literals are interpreted and printed automatically"
+"_____________________________________________________________\n"
+
+"[1. Literals]"
+"Hello, World!"
+23
+
+"\n_____________________________________________________________\n"
+"[2. Variables]"
+
+"Variables can be defined like name = value!\n"
+"For example:"
+"integer = 2"
+"double = 3.14"
+"helloworld = \"Hello, World!\""
+
+integer = 2
+double = 3.14
+helloworld = "Hello, World!"
+
+"\n_____________________________________________________________\n"
+"[3. Evaluation]"
+"Like literals, variables can be called directly,"
+"And will be properly evaluated:\n"
+"Result from variable \"helloworld\": " + helloworld

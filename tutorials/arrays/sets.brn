@@ -1,0 +1,97 @@
+"_____________________________________________________________"
+"Bern has various specific implementations for arrays."
+"To be specific, Bern has Lists and Sets. In this module, we will talk about sets."
+"_____________________________________________________________\n"
+"[1. Sets]"
+"A set is a type of collection of data that are of various types."
+"A set can be declared like the following:"
+"numbers_set = {1,2,3,4,5}"
+
+"\nResult:"
+numbers_set = {1,2,3,4,5}
+numbers_set
+
+"\nTo return a specific value in an index of a set, use [index]"
+"After a set/variable directly."
+"numbers_set[2]"
+
+"\nResult:"
+numbers_set[2]
+
+"\n_____________________________________________________________\n"
+"[2. Set Arithmetic]"
+"Sets have support for arithmetic operations such as addition and subtraction."
+"However, since sets can have various types of data, the behavior of these operations may vary."
+"Different from lists, using the addition operator (+) on a set adds the value to"
+"the set. For example:"
+"{1,2} + 3"
+
+"\nResult:"
+{1,2} + 3
+
+"Of course, being a set, you can also add sets to sets:"
+"{1,2} + {3,4}"
+
+"\nResult:"
+{1,2} + {3,4}
+
+"Sets can not contain duplicate values. Therefore, adding a value that already exists"
+"in the set will keep it as-is:"
+"{1,2,3} + 2"
+
+"\nResult:"
+{1,2,3} + 2
+
+"In regards to subtraction, using the subtraction operator (-) on a set removes"
+"a value from the set. For example:"
+"{1,2,3} - 2"
+
+"\nResult:"
+{1,2,3} - 2
+
+"\n_____________________________________________________________\n"
+"[3. Set Operations]"
+"Sets have support for various set theory operations such as union,"
+"intersection and difference."
+
+"Concatenation of two sets can be done using the (<>) operator."
+"or the Union (<|) operator."
+"For example:"
+"{1,2} <> {3,4,5}"
+
+"\nResult:"
+{1,2} <> {3,4,5}
+
+"As per set theory, duplicates are removed in the concatenation and absolutely any other"
+"set will be added regardless of type. For example:"
+"{1,2,'a',3.5} <> {3,4,'b',1}"
+"\nResult:"
+{1,2,'a',3.5} <> {3,4,'b',1}
+
+"\nThe Intersection (|>) operator can be used to get the common elements"
+"between two sets."
+"For example:"
+"{1,2,3} |> {2,3,4}"
+
+"\nResult:"
+{1,2,3} |> {2,3,4}
+
+"\nThe Difference (</>) operator can be used to get the elements"
+"that are in the first set but not in the second set."
+"For example:"
+"{1,2,3} </> {2,3,4}"
+
+"\nResult:"
+{1,2,3} </> {2,3,4}
+
+"\n_____________________________________________________________\n"
+"[4. Length]"
+"To get the length of a set, use the (:>) operator."
+"The same applies to lists and strings."
+"For example:"
+"len = {1,2,3,4,5}"
+":> len"
+
+"\nResult:"
+len = {1,2,3,4,5}
+:> len

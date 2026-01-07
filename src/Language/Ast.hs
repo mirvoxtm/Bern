@@ -12,20 +12,35 @@ module Language.Ast where
                          | Divide        -- (/)
                          | Equal         -- (==)
                          | Different     -- (!=) or (~=)
+                         | And           -- (&&)
+                         | Or            -- (||)
                          | GreaterThan   -- (>)
                          | LessThan      -- (<)
                          | GreaterThanEq -- (>=)
                          | LessThanEq    -- (<=)
-                         -- TODO: Add Set Theory Operations (union, intersection, difference, etc.)
+                         | Concatenation        -- (<>)
+                         | Union               -- (<|) for Sets and Lists
+                         | Intersection        -- (|>) for Sets and Lists
+                         | Difference          -- (</>) for Sets and Lists
                          deriving (Show, Eq)
 
     -- Unary Operations
     data UnaryOperation = Negate   -- Negates Numbers (-)
                         | Not      -- (!) or (~)
+                        | TypeOf   -- :: expr
+                        | SizeOf   -- :> expr
                         deriving (Show, Eq)
 
     data Expression = Number Int
+                    | DoubleNum Double
                     | BoolLiteral Bool -- true/false
+                    | StringLiteral String -- "string"
+                    | CharLiteral Char -- 'c'
+                    | SetLiteral [Expression]      -- {elem1, elem2, ...}
+                    | ListLiteral [Expression]     -- [elem1, elem2, ...]
+                    | ObjectLiteral [(String, Expression)] -- #{ key: value, ... }#
+                    | Range Expression Expression          -- [start .. end]
+                    | Index Expression Expression  -- list[index], set[index] or string[index]
                     | BinaryOperator BinaryOperation Expression Expression
                     | UnaryOperator UnaryOperation Expression
                     | Variable String
@@ -49,9 +64,11 @@ module Language.Ast where
     data Command = Skip
                  | Print Expression
                  | Assign String Expression                  -- (=)
+                 | AssignIndex String [Expression] Expression -- var[idx..] = expr
                  | Conditional Expression Command Command    -- if-then-else
                  | Repeat Expression Command                 -- for 3 do {}
                  | While Expression Command                  -- for (x != 10) do
-                 | ForIn String Expression Command           --  TODO: for (x:xs) do
+                 | ForIn String Expression Command           -- for x : collection do ... end
+                 | ForInCount String String Expression Command -- for x,i : collection do ... end
                  | Concat Command Command
                  deriving (Show, Eq)

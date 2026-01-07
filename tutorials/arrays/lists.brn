@@ -1,0 +1,99 @@
+"_____________________________________________________________"
+"Bern has various specific implementations for arrays."
+"To be specific, Bern has Lists and Sets. In this module, we will talk about lists."
+"_____________________________________________________________\n"
+"[1. Lists]"
+"A list is a type of collection of data that are the same type."
+"A list can be declared like the following:"
+"numbers_list = [1,2,3,4,5]"
+
+"\nResult:"
+numbers_list = [1,2,3,4,5]
+numbers_list
+
+"\nA list can also be made between a range just like Haskell:"
+"range_list = [5..10]"
+
+"\nResult:"
+range_list = [5..10]
+range_list
+
+"\nTo return a specific value in an index of a list, use [index]"
+"After a list/variable directly."
+"range_list[3]"
+
+"\nResult:"
+range_list[3]
+
+
+"\n_____________________________________________________________\n"
+
+"[2. List Arithmetic]"
+"Lists have support for Arithmetic operations such as addition and subtraction."
+"Using the addition operator (+) maps a value to the entire list:"
+"For example:"
+"[1,2] + 2"
+
+"\nResult:"
+[1,2] + 2
+
+"\nThe same also applies for all other Arithmetic operations"
+"related to a list and a number, such as multiplication, subtraction and division."
+"\nIf we want to perform Arithmetic operations between two lists,"
+"both lists must have the same length."
+"For example:"
+"[1,2,3] + [4,5,6]"
+
+"\nResult:"
+[1,2,3] + [4,5,6]
+
+"\n_____________________________________________________________\n"
+"[3. Array Operations]"
+"It is possible to concatenate two arrays using the (<>) operator."
+"For example:"
+"[1,2] <> [3..5]"
+
+"\nResult:"
+[1,2] <> [3..5]
+
+"The Union (<|) operator can be used to combine two lists, removing duplicates."
+"For example:"
+"[1,2,3] <| [3,4,5]"
+
+"\nResult:"
+[1,2,3] <| [3,4,5]
+
+"\nThe Intersection (|>) operator can be used to find common elements between two lists."
+"For example:"
+"[1,2,3,4] |> [3,4,5,6]"
+
+"\nResult:"
+[1,2,3,4] |> [3,4,5,6]
+
+"\nThe Difference (</>) operator can be used to find elements in the first list"
+"that are not in the second."
+"For example:"
+"[1,2,3,4] </> [3,4,5,6]"
+
+"\nResult:"
+[1,2,3,4] </> [3,4,5,6]
+
+"\nOf course, We can also combine these operations together."
+"For example:"
+"([1,2,3,4] <> [3..5]) <| ([2,3,4] |> [4,5]) </> [1]"
+
+"\nResult:"
+test = ([1,2,3,4] <> [3..5]) <| ([2,3,4] |> [4,5]) </> [1]
+test
+
+"\n_____________________________________________________________\n"
+"[4. Length]"
+"To get the length of a list, use the (:>) operator:"
+"The same applies to lists and strings."
+"For example:"
+"len = [1,2,3,4,5]"
+":> len"
+
+"\nResult:"
+len = [1,2,3,4,5]
+:> len
