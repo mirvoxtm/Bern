@@ -1,8 +1,7 @@
 # Bern
 
-<img src="img/logo.png" alt="Bern Logo" width="400"/>
-
-**An interpreted, dynamically typed programming language**
+<img align="center" src="img/logo.png" alt="Bern Logo" width="400"/>
+<p align="center">An interpreted, dynamically typed programming language</p>
 
 <p align="center">
   <a href="https://miragem.app.br/">
@@ -12,8 +11,8 @@
     <img alt="Language" src="https://img.shields.io/badge/Built%20With-Haskell-purple"
   ></a>
 </p>
-## About
 
+## About
 Bern is a small, interpreted, dynamically typed programming language focused on clarity and expressiveness.
 
 It blends ideas from functional programming (inspired by Haskell) with a lightweight, imperative syntax influenced by Lua and Odin.
