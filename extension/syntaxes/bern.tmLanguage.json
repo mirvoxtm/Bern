@@ -13,7 +13,8 @@
     { "include": "#function-definition" },
     { "include": "#function-call" },
     { "include": "#variable" },
-    { "include": "#operator" }
+    { "include": "#operator" },
+    { "include": "#object" }
   ],
   "repository": {
     "comment": {
@@ -49,7 +50,7 @@
     },
     "keyword": {
       "name": "keyword.control.bern",
-      "match": "\\b(def|return|if|else|then|for|do|end|while|repeat|print|import|let)\\b"
+      "match": "\\b(def|return|if|else|then|for|do|end|while|repeat|print|import|let|is)\\b"
     },
     "constant": {
       "name": "constant.language.bern",
@@ -73,6 +74,17 @@
       "captures": {
         "1": { "name": "variable.other.assignment.bern" }
       }
+    },
+    "object": {
+      "name": "meta.object.bern",
+      "begin": "\\#{",
+      "end": "\\}#",
+      "patterns": [
+        {
+          "name": "variable.other.property.bern",
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:"
+        }
+      ]
     },
     "operator": {
       "patterns": [

@@ -176,6 +176,9 @@ def char_to_digit('7') -> 7
 def char_to_digit('8') -> 8
 def char_to_digit('9') -> 9
 
+def append([], y) -> y
+def append([head|tail], y) -> [head] <> append(tail, y)
+
 def to_int(s) do
     def helper([], acc) -> acc
     def helper([head|tail], acc) do

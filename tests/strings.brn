@@ -1,0 +1,8 @@
+import strings
+import assert
+
+assert_equals("split",split("a.b.c", "."), ["a", "b", "c"])
+assert_equals("char_at",char_at("hello", 1), 'e')
+assert_equals("substring",substring("hello world", 0, 5), "hello")
+to_upper("Hello World!")
+assert_equals("to_upper",to_upper("Hello World!"), "HELLO WORLD!")

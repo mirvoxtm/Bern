@@ -1,0 +1,34 @@
+-- Bern String Library
+-- This module provides common string manipulation functions.
+import core
+
+def substring(s, start, end) do
+    result = ""
+    i = start
+    while (i < end && i < length(s)) do
+        result = result + s[i]
+        i = i + 1
+    end
+    return result
+end
+
+def char_at(s, index) -> s[index]
+
+def split(s, delimiter) do
+    result = []
+    current = ""
+    delim_len = length(delimiter)
+    i = 0
+    while (i < length(s)) do
+        if (substring(s, i, i + delim_len) == delimiter) then
+            result = result <> [current]
+            current = ""
+            i = i + delim_len
+        else
+            current = current + s[i]
+            i = i + 1
+        end
+    end
+    result = result <> [current]
+    return result
+end
