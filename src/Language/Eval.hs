@@ -39,6 +39,7 @@ interpretCommand (Assign name expr) table =
         Right v@(Character _) -> return (insertHashtable table name v)
         Right v@(List _ _)    -> return (insertHashtable table name v)
         Right v@(Set _ _)     -> return (insertHashtable table name v)
+        Right v@(Object _)    -> return (insertHashtable table name v)
         Right v@(Function _)  -> return (insertHashtable table name v)
         Right v@(Lambda _)    -> return (insertHashtable table name v)
         Right _               -> die "Unexpected value in assignment"
@@ -49,9 +50,12 @@ interpretCommand (AssignIndex name idxExprs expr) table = do
                   Just v  -> return v
                   Nothing -> die "Variable not found"
     idxVals <- mapM (\ie -> case evaluate ie table of
-                              Right (Integer n) -> return n
-                              Right _           -> die "Index must be integer"
-                              Left err          -> die err) idxExprs
+                              Right (Integer n)      -> return (IdxInt n)
+                              Right (Text t _)       -> return (IdxKey t)
+                              Right (TextLiteral t _) -> return (IdxKey t)
+                              Right (Character c)    -> return (IdxKey [c])
+                              Right _                -> die "Index must be integer or string (in case of objects)"
+                              Left err               -> die err) idxExprs
     newVal <- case evaluate expr table of
                 Right v  -> return v
                 Left err -> die err
@@ -314,7 +318,7 @@ evaluate (Range start end) table = do
             in Right (List vals (length vals))
         _ -> Left "Type error: range bounds must be numeric"
 
--- Index access: list[i], string[i], set[i]
+-- Index access: list[i], string[i], set[i], object["key"]
 evaluate (Index expr idxExpr) table = do
     collection <- evaluate expr table
     idx <- evaluate idxExpr table
@@ -328,6 +332,18 @@ evaluate (Index expr idxExpr) table = do
         (Text s len, Integer i)
             | i >= 0 && i < len -> Right (Character (s !! i))
             | otherwise -> Left ("Index out of bounds: " ++ show i)
+        (Object kvs, Text key _) ->
+            case lookup key kvs of
+                Just v  -> Right v
+                Nothing -> Left ("Key not found: " ++ key)
+        (Object kvs, TextLiteral key _) ->
+            case lookup key kvs of
+                Just v  -> Right v
+                Nothing -> Left ("Key not found: " ++ key)
+        (Object kvs, Character c) ->
+            case lookup [c] kvs of
+                Just v  -> Right v
+                Nothing -> Left ("Key not found: " ++ [c])
         _ -> Left "Cannot index this type or invalid index"
 
 -- If a Variable name is received, then
@@ -356,6 +372,12 @@ evaluate (UnaryOperator op expr) table = do
     val <- evaluate expr table
     -- Call evalUnaryOp when value is fully found.
     evalUnaryOp op val
+
+evaluate (ObjectLiteral kvExprs) table = do
+    kvVals <- mapM (\(k, vExpr) -> do
+                        vVal <- evaluate vExpr table
+                        return (k, vVal)) kvExprs
+    Right (Object kvVals)
 
 evaluate (LambdaExpr params bodyExpr) _table =
     Right (Lambda [Clause params (BodyExpr bodyExpr)])
@@ -634,12 +656,14 @@ numericDivLeft :: Value -> Value -> Either String Value
 numericDivLeft = flip numericDiv
 
 -- Immutable update of nested list elements
-setAt :: [Int] -> Value -> Value -> Either String Value
+data IndexKey = IdxInt Int | IdxKey String deriving (Eq, Show)
+
+setAt :: [IndexKey] -> Value -> Value -> Either String Value
 setAt [] _ _ = Left "Invalid assignment target"
-setAt (i:is) newVal (List vals len)
+-- List update
+setAt (IdxInt i:is) newVal (List vals len)
     | i < 0 || i >= len = Left "Index out of bounds"
     | null is =
-        -- replace element, enforce homogeneous list
         let old = vals !! i
         in if getValueType old == getValueType newVal
               then Right (List (replaceAt i newVal vals) len)
@@ -647,10 +671,31 @@ setAt (i:is) newVal (List vals len)
     | otherwise = do
         nested <- case vals !! i of
                     l@(List _ _) -> Right l
-                    _            -> Left "Type error: cannot index into non-list"
+                    o@(Object _) -> Right o
+                    _            -> Left "Type error: cannot index into non-collection"
         updatedNested <- setAt is newVal nested
         Right (List (replaceAt i updatedNested vals) len)
-setAt _ _ _ = Left "Type error: assignment target must be a list"
+-- Object update
+setAt (IdxKey k:is) newVal (Object kvs)
+    | null is = Right (Object (upsert k newVal kvs))
+    | otherwise = do
+        nested <- case lookup k kvs of
+                    Just v@(Object _) -> Right v
+                    Just v@(List _ _) -> Right v
+                    Just _            -> Left "Type error: cannot index into non-object/non-list"
+                    Nothing           -> Left "Key not found for nested assignment"
+        updatedNested <- setAt is newVal nested
+        Right (Object (upsert k updatedNested kvs))
+-- Type mismatch paths
+setAt (IdxInt _ : _) _ (Object _) = Left "Type error: expected string key for object"
+setAt (IdxKey _ : _) _ (List _ _) = Left "Type error: expected integer index for list"
+setAt _ _ _ = Left "Type error: assignment target must be a list or object"
+
+upsert :: String -> Value -> [(String, Value)] -> [(String, Value)]
+upsert key val [] = [(key, val)]
+upsert key val ((k,v):rest)
+    | key == k  = (key, val) : rest
+    | otherwise = (k,v) : upsert key val rest
 
 replaceAt :: Int -> a -> [a] -> [a]
 replaceAt _ _ [] = []

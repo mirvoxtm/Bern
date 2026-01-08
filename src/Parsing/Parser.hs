@@ -81,6 +81,41 @@ parseChar = lexeme $ do
     _ <- char '\''
     return $ CharLiteral c
 
+-- Key/value pairs for object literals. Uses the newline-tolerant space consumer
+-- so objects can be written across multiple lines.
+parseKeyValuePair :: Parser (String, Expression)
+parseKeyValuePair = do
+    key <- L.lexeme sc parseKey
+    _ <- symbol ":"
+    value <- parseExpression
+    return (key, value)
+  where
+    parseKey = parseStringKey <|> parseIdentKey
+    -- Allow quoted string keys: "key"
+    parseStringKey = do
+        _ <- char '"'
+        content <- manyTill L.charLiteral (char '"')
+        return content
+    -- Or bare identifiers/digits: foo, foo1
+    parseIdentKey = some (letterChar <|> char '_' <|> digitChar)
+
+-- Parser for object literals #{ key: value, ... }#
+parseObject :: Parser Expression
+parseObject = try parseHashBraces <|> parseBareHash
+    where
+        parseHashBraces = do
+            _ <- symbol "#{"
+            pairs <- parseKeyValuePair `sepBy` symbol ","
+            -- Allow closing after any intervening whitespace/newlines
+            _ <- sc *> symbol "}#"
+            return $ ObjectLiteral pairs
+        parseBareHash = do
+            _ <- lexeme (char '#')
+            pairs <- parseKeyValuePair `sepBy` symbol ","
+            -- Allow closing after any intervening whitespace/newlines
+            _ <- sc *> symbol "#"
+            return $ ObjectLiteral pairs
+
 -- Parser for list literals [elem1, elem2, ...]
 parseList :: Parser Expression
 parseList = do
@@ -161,7 +196,8 @@ parseTerm = do
 
 -- Parse base terms without index access
 parseBaseTerm :: Parser Expression
-parseBaseTerm = try parseLambda
+parseBaseTerm = try parseObject
+    <|> try parseLambda
     <|> try parseDouble
     <|> try parseNumber
     <|> try parseString
@@ -295,15 +331,19 @@ parseAssignment = try parseIndexedAssign <|> parseSimpleAssign
     parseIndexedAssign = try $ do
         (varName, idxs) <- lexeme parseVarWithIndices
         if null idxs then fail "no indices" else pure ()
-        _ <- scn
+        -- Allow zero-or-more horizontal whitespace between the variable and '='
+        _ <- optional scn
         _ <- symbol "="
+        _ <- optional sc  -- allow newline before rhs
         expr <- parseExpression
         return $ AssignIndex varName idxs expr
     parseSimpleAssign = do
         (varName, idxs) <- lexeme parseVarWithIndices
         if not (null idxs) then fail "indexed" else pure ()
-        _ <- scn
+        -- Allow zero-or-more horizontal whitespace between the variable and '='
+        _ <- optional scn
         _ <- symbol "="
+        _ <- optional sc  -- allow newline before rhs
         -- Check if right-hand side is input() call
         inputCall <- optional $ try $ do
             _ <- keyword "input"

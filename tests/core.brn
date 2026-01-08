@@ -61,3 +61,4 @@ assert_equals("length set", length({1,2,3}), 3)
 
 -- approx helper sanity
 assert_approx("approxEq", 1.0005, 1.0, 0.001)
+assert_equals("to_int", to_int("12345"), 12345)

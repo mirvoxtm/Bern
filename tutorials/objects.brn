@@ -1,0 +1,46 @@
+"_____________________________________________________________"
+"Bern has support for Objects, or Hashmaps/Hashtables."
+"An object in bern uses the #{...}# notation and consists"
+"of key-value pairs."
+"_____________________________________________________________\n"
+"[1. Declaring an Object]"
+"An object can be declared like the following:"
+"#{"
+" key: \"value\","
+" hello: \"world\""
+"}#"
+
+"\nResult:"
+obj = #{
+  key: "value",
+  hello: "world"
+}#
+obj
+
+"_____________________________________________________________\n"
+"[2. Reassigning a value]"
+"You can reassign the value of a key pair with the following:"
+"\nobject[\"key\"] = \"new_value\""
+obj["key"] = "new_value"
+obj
+
+"_____________________________________________________________\n"
+"[2. Adding a field]"
+"You can add a new key-value pair to an object by simply assigning"
+"a value to a new key:"
+"\nobject[\"new_key\"] = \"added_value\""
+obj["new_key"] = "added_value"
+obj
+
+"_____________________________________________________________\n"
+"[3. Accessing nested objects]"
+"Objects can be nested within other objects."
+"\nYou can access nested values using multiple indexing:"
+"obj[\"inner_object\"] = #{ nested_key: \"nested_value\" }#"
+"obj[\"inner_object\"][\"nested_key\"]"
+
+"\nResult:"
+obj["test"] = #{
+  nested_key: "nested_value"
+}#
+obj["test"]["nested_key"]

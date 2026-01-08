@@ -102,7 +102,7 @@ data Command = Skip
                 | ForInCount String String Expression Command -- for x,i : collection do ... end
                 | Concat Command Command
                 | FunctionDef String Clause                   -- def name(params) do ... end / -> expr / pattern clauses
-                | Return Expression
+                | Return Expression                           -- return expr
                 | Import String                               -- import module
                 | Input String Expression                     -- input var prompt
                 deriving (Show, Eq)
