@@ -163,3 +163,25 @@ def const(x, _) -> x
 
 -- Flip: swap arguments of a binary function (no closures)
 def flip(f, x, y) -> f(y, x)
+
+-- Convert string to integer using pattern matching
+def char_to_digit('0') -> 0
+def char_to_digit('1') -> 1
+def char_to_digit('2') -> 2
+def char_to_digit('3') -> 3
+def char_to_digit('4') -> 4
+def char_to_digit('5') -> 5
+def char_to_digit('6') -> 6
+def char_to_digit('7') -> 7
+def char_to_digit('8') -> 8
+def char_to_digit('9') -> 9
+
+def to_int(s) do
+    def helper([], acc) -> acc
+    def helper([head|tail], acc) do
+        digit = char_to_digit(head)
+        newAcc = acc * 10 + digit
+        return helper(tail, newAcc)
+    end
+    return helper(s, 0)
+end

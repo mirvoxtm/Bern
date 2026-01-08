@@ -10,3 +10,17 @@ name = input("Type your name: ")
 
 "\nResult:"
 name
+
+"\n_____________________________________________________________"
+"By default, input() captures data as text."
+"To convert the input to another type, import the core library."
+"For integer types, use the to_int() function:\n"
+
+"import core"
+"age_text = input(\"Type your age: \")"
+"age = to_int(age_text)"
+
+import core
+age_text = input("Type your age: ")
+age = to_int(age_text)
+"Your age if you were 5 years older: " + (age + 5)
