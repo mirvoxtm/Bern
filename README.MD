@@ -149,6 +149,70 @@ for char, index : text do
 end
 ```
 
+---
+
+## Functions and Pattern Matching
+
+Bern supports concise function definitions, lambdas, and multi-clause pattern matching.
+
+### Simple Functions
+
+Define a function with `def name(params) -> expr`:
+
+```
+def add(x, y) -> x + y
+add(2, 3)
+```
+
+### Lambdas
+
+Lambdas use the same arrow syntax and can be passed around:
+
+```
+inc = \x -> x + 1
+pairSwap = \a, b -> [b, a]
+inc(10)
+pairSwap(1, 2)
+```
+
+### Multi-Clause Pattern Matching
+
+Define multiple clauses; the first matching pattern runs:
+
+```
+def sign(0) -> "zero"
+def sign(n) -> "positive"
+
+sign(0)
+sign(42)
+```
+
+Wildcards and literals are supported too:
+
+```
+def greet("Alice") -> "Hi, Alice!"
+def greet(_) -> "Hello, someone else!"
+
+greet("Alice")
+greet("Bob")
+```
+
+### Block-Body Functions
+
+Use `do ... end` with `return` when you need statements:
+
+```
+def sumList(xs) do
+    total = 0
+    for n : xs do
+        total = total + n
+    end
+    return total
+end
+
+sumList([1, 2, 3, 4])
+```
+
 ## FizzBuzz in Bern
 
 A complete FizzBuzz example demonstrating variables, conditionals, and loops:
