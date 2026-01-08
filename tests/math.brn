@@ -1,0 +1,38 @@
+import core
+import math
+import assert
+
+-- Simple assertion helpers
+"Math library smoke tests"
+
+-- Constants
+assert_approx("pi", pi, 3.14159, 0.0001)
+assert_approx("e", e, 2.71828, 0.0001)
+
+-- Basic helpers
+assert_equals("abs", abs(-5), 5)
+assert_equals("clamp", clamp(5, 0, 3), 3)
+assert_equals("fmod", fmod(7, 3), 1)
+
+-- Powers and roots
+assert_equals("pow int", pow(2, 10), 1024)
+assert_approx("sqrt", sqrt(9), 3, 0.001)
+assert_approx("hypot", hypot(3, 4), 5, 0.001)
+
+-- Exponential / log
+assert_approx("exp(1)", exp(1), e, 0.001)
+assert_approx("log(e)", log(e), 1, 0.001)
+assert_approx("log10(1000)", log10(1000), 3, 0.001)
+
+-- Trig
+assert_approx("sin(pi/2)", sin(pi / 2), 1, 0.001)
+assert_approx("cos(pi)", cos(pi), -1, 0.001)
+assert_approx("tan(pi/4)", tan(pi / 4), 1, 0.001)
+
+-- Inverse trig
+assert_approx("atan(1)", atan(1), pi / 4, 0.001)
+assert_approx("atan2(1,0)", atan2(1, 0), pi / 2, 0.001)
+
+-- Angle conversion
+assert_approx("toDegrees(pi)", toDegrees(pi), 180, 0.001)
+assert_approx("toRadians(180)", toRadians(180), pi, 0.001)

@@ -13,6 +13,8 @@ getValueType (Object _) = "Object"
 getValueType (TextLiteral _ _) = "TextLiteral"
 getValueType (Character _) = "Character"
 getValueType (Text _ _) = "Text"
+getValueType (Function _) = "Function"
+getValueType (Lambda _) = "Lambda"
 getValueType (AlgebraicDataType name _) = name
 
 getValueOnly :: Value -> String
@@ -27,6 +29,8 @@ getValueOnly (Object o) = show o
 getValueOnly (TextLiteral t _) = t
 getValueOnly (Character c) = [c]
 getValueOnly (Text t _) = t
+getValueOnly (Function _) = "<function>"
+getValueOnly (Lambda _) = "<lambda>"
 
 allSameType :: [Value] -> Bool
 allSameType [] = True

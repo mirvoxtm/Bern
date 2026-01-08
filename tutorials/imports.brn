@@ -1,0 +1,17 @@
+import core
+
+-- Define a simple function
+def addTwo(x) -> x + 2
+
+-- Use map from core library
+map([1,2,3,4,5], addTwo)
+
+-- Use filter
+def isEven(x) -> x % 2 == 0
+filter([1,2,3,4,5,6,7,8,9,10], isEven)
+
+-- Use sum
+sum([1,2,3,4,5])
+
+-- Use range
+range(1, 10)

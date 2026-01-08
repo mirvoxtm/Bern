@@ -1,0 +1,102 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Bern",
+  "scopeName": "source.bern",
+  "fileTypes": ["brn"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#character" },
+    { "include": "#number" },
+    { "include": "#keyword" },
+    { "include": "#constant" },
+    { "include": "#function-definition" },
+    { "include": "#function-call" },
+    { "include": "#variable" },
+    { "include": "#operator" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.double-dash.bern",
+      "match": "--.*$"
+    },
+    "string": {
+      "name": "string.quoted.double.bern",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.bern",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "character": {
+      "name": "string.quoted.single.bern",
+      "match": "'[^'\\\\]'"
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.bern",
+          "match": "\\b[0-9]+\\.[0-9]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.bern",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "keyword": {
+      "name": "keyword.control.bern",
+      "match": "\\b(def|return|if|else|then|for|do|end|while|repeat|print|import|let)\\b"
+    },
+    "constant": {
+      "name": "constant.language.bern",
+      "match": "\\b(true|false)\\b"
+    },
+    "function-definition": {
+      "match": "\\b(def)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+      "captures": {
+        "1": { "name": "keyword.control.bern" },
+        "2": { "name": "entity.name.function.bern" }
+      }
+    },
+    "function-call": {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+      "captures": {
+        "1": { "name": "entity.name.function.bern" }
+      }
+    },
+    "variable": {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*=",
+      "captures": {
+        "1": { "name": "variable.other.assignment.bern" }
+      }
+    },
+    "operator": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arithmetic.bern",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "name": "keyword.operator.comparison.bern",
+          "match": "(==|!=|>=|<=|>|<)"
+        },
+        {
+          "name": "keyword.operator.logical.bern",
+          "match": "(&&|\\|\\|)"
+        },
+        {
+          "name": "keyword.operator.assignment.bern",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arrow.bern",
+          "match": "->"
+        }
+      ]
+    }
+  }
+}

@@ -28,9 +28,13 @@ sc = L.space space1 lineCmnt blockCmnt
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme scn
 
--- Symbol parser
+-- Symbol parser (consumes all whitespace including newlines)
 symbol :: String -> Parser String
 symbol = L.symbol sc
+
+-- Symbol parser that does NOT consume newlines (for operators in expressions)
+symbolNoNl :: String -> Parser String
+symbolNoNl = L.symbol scn
 
 -- Parser for numbers
 parseNumber :: Parser Expression
@@ -73,40 +77,40 @@ parseChar = lexeme $ do
 -- Parser for list literals [elem1, elem2, ...]
 parseList :: Parser Expression
 parseList = do
-    _ <- symbol "["
+    _ <- symbolNoNl "["
     -- Try range syntax [start .. end]; fall back to comma-separated list
     range <- optional $ try $ do
         start <- parseExpression
-        _ <- symbol ".."
+        _ <- symbolNoNl ".."
         end <- parseExpression
         return (start, end)
     case range of
         Just (start, end) -> do
-            _ <- symbol "]"
+            _ <- symbolNoNl "]"
             return $ Range start end
         Nothing -> do
-            elems <- parseExpression `sepBy` symbol ","
-            _ <- symbol "]"
+            elems <- parseExpression `sepBy` symbolNoNl ","
+            _ <- symbolNoNl "]"
             return $ ListLiteral elems
 
 -- Parser for set literals {elem1, elem2, ...}
 parseSet :: Parser Expression
 parseSet = do
-    _ <- symbol "{"
-    elems <- parseExpression `sepBy` symbol ","
-    _ <- symbol "}"
+    _ <- symbolNoNl "{"
+    elems <- parseExpression `sepBy` symbolNoNl ","
+    _ <- symbolNoNl "}"
     return $ SetLiteral elems
 
 -- Parser for parentheses
 parseParens :: Parser Expression
-parseParens = between (symbol "(") (symbol ")") parseExpression
+parseParens = between (symbolNoNl "(") (symbolNoNl ")") parseExpression
 
 -- Parse binary operations
 binary :: String -> BinaryOperation -> Operator Parser Expression
-binary name f = InfixL (BinaryOperator f <$ symbol name)
+binary name f = InfixL (BinaryOperator f <$ symbolNoNl name)
 
 prefix :: String -> UnaryOperation -> Operator Parser Expression
-prefix name f = Prefix (UnaryOperator f <$ symbol name)
+prefix name f = Prefix (UnaryOperator f <$ symbolNoNl name)
 
 operatorTable :: [[Operator Parser Expression]]
 operatorTable =
@@ -143,21 +147,121 @@ operatorTable =
 -- Parse terms (numbers, variables, parentheses)
 parseTerm :: Parser Expression
 parseTerm = do
+    pos <- getSourcePos
     base <- parseBaseTerm
     indices <- many parseIndexAccess
-    return $ foldl Index base indices
+    return $ WithPos pos (foldl Index base indices)
 
 -- Parse base terms without index access
 parseBaseTerm :: Parser Expression
-parseBaseTerm = try parseDouble
+parseBaseTerm = try parseLambda
+    <|> try parseDouble
     <|> try parseNumber
     <|> try parseString
     <|> try parseChar
     <|> try parseBoolean
     <|> try parseList
     <|> try parseSet
-    <|> try parseVariable
+    <|> try parseFunctionCallOrVar
     <|> parseParens
+
+-- Parse a variable or a function call (name(args...))
+parseFunctionCallOrVar :: Parser Expression
+parseFunctionCallOrVar = lexeme $ do
+    firstChar <- letterChar <|> char '_'
+    rest <- many (alphaNumChar <|> char '_')
+    let name = firstChar : rest
+    margs <- optional $ between (symbolNoNl "(") (symbolNoNl ")") (parseExpression `sepBy` symbolNoNl ",")
+    case margs of
+        Just args -> return $ FunctionCall name args
+        Nothing   -> return $ Variable name
+
+-- Parse a lambda: either \x,y -> expr or (x,y) -> expr
+parseLambda :: Parser Expression
+parseLambda = try backslashLambda <|> try parenLambda
+  where
+    backslashLambda = do
+        _ <- char '\\'
+        params <- parsePatterns
+        _ <- symbol "->"
+        body <- parseExpression
+        return $ LambdaExpr params body
+    parenLambda = do
+        _ <- symbol "("
+        params <- parsePatterns
+        _ <- symbol ")"
+        _ <- symbol "->"
+        body <- parseExpression
+        return $ LambdaExpr params body
+
+parsePatterns :: Parser [Pattern]
+parsePatterns = parsePattern `sepBy` symbol ","
+
+parsePattern :: Parser Pattern
+parsePattern = lexeme $ choice
+    [ string "_" >> return PWildcard
+    , try parseListPattern  -- [head|tail] or [] or [a, b, c]
+    , try parseSetPattern   -- {head|tail} or {} or {a, b, c}
+    , try $ PInt <$> L.decimal
+    , try $ PDouble <$> L.float
+    , try $ (string "true" >> return (PBool True))
+    , try $ (string "false" >> return (PBool False))
+    , try $ do _ <- char '\''; c <- L.charLiteral; _ <- char '\''; return (PChar c)
+    , try $ do _ <- char '"'; s <- manyTill L.charLiteral (char '"'); return (PString s)
+    , do firstChar <- letterChar <|> char '_'
+         rest <- many (alphaNumChar <|> char '_')
+         return (PVar (firstChar:rest))
+    ]
+
+-- Parse list patterns: [], [head|tail], [a, b, c]
+parseListPattern :: Parser Pattern
+parseListPattern = do
+    _ <- char '['
+    sc
+    result <- choice
+        [ try $ do  -- Empty list
+            _ <- char ']'
+            return (PList [])
+        , try $ do  -- Cons pattern [head|tail]
+            headPat <- parsePattern
+            sc
+            _ <- char '|'
+            sc
+            tailPat <- parsePattern
+            sc
+            _ <- char ']'
+            return (PCons headPat tailPat)
+        , do  -- List of patterns [a, b, c]
+            pats <- parsePattern `sepBy` symbol ","
+            _ <- char ']'
+            return (PList pats)
+        ]
+    return result
+
+-- Parse set patterns: {}, {head|tail}, {a, b, c}
+parseSetPattern :: Parser Pattern
+parseSetPattern = do
+    _ <- char '{'
+    sc
+    result <- choice
+        [ try $ do  -- Empty set
+            _ <- char '}'
+            return (PSet [])
+        , try $ do  -- Set cons pattern {head|tail}
+            headPat <- parsePattern
+            sc
+            _ <- char '|'
+            sc
+            tailPat <- parsePattern
+            sc
+            _ <- char '}'
+            return (PSetCons headPat tailPat)
+        , do  -- Set of patterns {a, b, c}
+            pats <- parsePattern `sepBy` symbol ","
+            _ <- char '}'
+            return (PSet pats)
+        ]
+    return result
 
 -- Parse index access [expr]
 parseIndexAccess :: Parser Expression
@@ -202,6 +306,20 @@ parsePrint = do
     expr <- parseExpression
     return $ Print expr
 
+parseFunctionDef :: Parser Command
+parseFunctionDef = do
+    _ <- symbol "def"
+    name <- lexeme $ do
+        first <- letterChar <|> char '_'
+        rest <- many (alphaNumChar <|> char '_')
+        return (first:rest)
+    _ <- symbol "("
+    params <- parsePatterns
+    _ <- symbol ")"
+    body <- (symbolNoNl "->" >> (BodyExpr <$> parseExpression))
+        <|> (symbol "do" >> (BodyBlock <$> parseBlockCommands) <* symbol "end")
+    return $ FunctionDef name (Clause params body)
+
 parseConditional :: Parser Command
 parseConditional = do
     _ <- symbol "if"
@@ -241,10 +359,15 @@ parseRepeat = do
     _ <- symbol "do"
     cmd <- parseBlockCommands
     _ <- symbol "end"
-    -- If it's a simple number, use Repeat; otherwise use While (for conditions)
-    case countExpr of
+    -- If it's a simple number (possibly wrapped with WithPos), use Repeat; otherwise use While (for conditions)
+    case stripPos countExpr of
         Number _ -> return $ Repeat countExpr cmd
         _        -> return $ While countExpr cmd
+
+-- Remove WithPos wrapper to inspect underlying expression
+stripPos :: Expression -> Expression
+stripPos (WithPos _ e) = stripPos e
+stripPos e = e
 
 parseForIn :: Parser Command
 parseForIn = do
@@ -270,13 +393,28 @@ parseWhile = do
     return $ While cond cmd
 
 parseSingleCommand :: Parser Command
-parseSingleCommand = try parsePrint
+parseSingleCommand = try parseImport
+               <|> try parseFunctionDef
+               <|> try parseReturn
+               <|> try parsePrint
                <|> try parseConditional
                <|> try parseForIn
                <|> try parseRepeat
                <|> try parseWhile
                <|> try parseAssignment
                <|> (Print <$> parseExpression)
+
+parseImport :: Parser Command
+parseImport = do
+    _ <- symbol "import"
+    name <- lexeme $ some (letterChar <|> char '_' <|> char '/')
+    return (Import name)
+
+parseReturn :: Parser Command
+parseReturn = do
+    _ <- symbol "return"
+    expr <- parseExpression
+    return (Return expr)
 
 -- Parse commands inside a block (stops at end/else keywords)
 parseBlockCommands :: Parser Command
@@ -305,10 +443,14 @@ parseCommands = do
 parseCommand :: Parser Command
 parseCommand = parseCommands
 
--- Top-level parser
-parseBern :: String -> Either (ParseErrorBundle String Void) Command
-parseBern input = parse (sc *> parseCommand <* sc <* eof) "" input
+-- Top-level parser. Accepts a source name so parse errors report filenames/line numbers.
+parseBernWithName :: String -> String -> Either (ParseErrorBundle String Void) Command
+parseBernWithName name input = parse (sc *> parseCommand <* sc <* eof) name input
 
--- Parse a file (multiple lines)
-parseBernFile :: String -> Either (ParseErrorBundle String Void) Command
-parseBernFile = parseBern
+-- Interactive parser defaults to <interactive>
+parseBern :: String -> Either (ParseErrorBundle String Void) Command
+parseBern = parseBernWithName "<interactive>"
+
+-- File parser uses the provided filename
+parseBernFile :: String -> String -> Either (ParseErrorBundle String Void) Command
+parseBernFile = parseBernWithName

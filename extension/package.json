@@ -1,0 +1,33 @@
+{
+  "name": "bern-syntax",
+  "displayName": "Bern Syntax Highlighting",
+  "description": "Syntax highlighting for the Bern language (.brn)",
+  "version": "0.0.4",
+  "publisher": "mirvoxtm",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bern",
+        "aliases": ["Bern", "bern"],
+        "extensions": [".brn"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bern",
+        "scopeName": "source.bern",
+        "path": "./syntaxes/bern.tmLanguage.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mirvoxtm/Bern"
+  },
+  "license": "MIT"
+}

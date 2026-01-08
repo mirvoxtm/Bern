@@ -1,6 +1,6 @@
 module Main where
 
-import System.IO (hFlush, hSetBuffering, BufferMode(NoBuffering), stdout, stdin)
+import System.IO (hFlush, hSetBuffering, BufferMode(NoBuffering), stdout, stdin, BufferMode( LineBuffering ))
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import Language.Ast
@@ -8,6 +8,7 @@ import Language.Eval
 import Data.Hashtable.Hashtable
 import Language.Helpers
 import Parsing.Parser
+import Text.Megaparsec (errorBundlePretty)
 
 initialTable :: Hashtable String Value
 initialTable = emptyHashtable
@@ -15,7 +16,7 @@ initialTable = emptyHashtable
 main :: IO ()
 main = do
   hSetBuffering stdout NoBuffering
-  hSetBuffering stdin NoBuffering
+  hSetBuffering stdin LineBuffering
   args <- getArgs
   case args of
     [filename] -> runFile filename
@@ -28,22 +29,22 @@ main = do
 runFile :: FilePath -> IO ()
 runFile path = do
   contents <- readFile path
-  case parseBernFile contents of
-    Left err -> putStrLn ("Parse error: " ++ show err) >> exitFailure
+  case parseBernFile path contents of
+    Left err -> putStrLn (errorBundlePretty err) >> exitFailure
     Right cmd -> do
       _ <- interpretCommand cmd initialTable
       return ()
 
 repl :: Hashtable String Value -> IO ()
 repl table = do
-  putStr "|> "
+  putStr "bern>"
   hFlush stdout
   line <- getLine
   -- Skip empty lines
   if null line || all (== ' ') line
     then repl table
     else case parseBern line of
-      Left err -> putStrLn ("Parse error: " ++ show err) >> exitFailure
+      Left err -> putStrLn (errorBundlePretty err) >> exitFailure
       Right cmd -> do
         newTable <- interpretCommand cmd table
         repl newTable

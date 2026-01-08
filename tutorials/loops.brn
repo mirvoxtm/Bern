@@ -28,7 +28,7 @@ end
 
 "\nResult:"
 counter = 2
-for counter > 0 do
+for (counter > 0) do
     "Hello, Loops!"
     counter = counter - 1
 end

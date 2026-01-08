@@ -1,0 +1,87 @@
+"_____________________________________________________________"
+"Functions and Lambdas in Bern"
+"Functions support pattern matching, inline arrows, and block bodies with return."
+"_____________________________________________________________\n"
+
+"[1. Simple function definition]"
+"Use def name(params) -> expr for one-liners."
+"def add(x, y) -> x + y"
+"add(2, 3)"
+
+"\nResult:"
+def add(x, y) -> x + y
+add(2, 3)
+
+"\n_____________________________________________________________\n"
+"[2. Multi-clause pattern matching]"
+"Define several clauses; the first matching pattern runs."
+"def sign(0) -> \"zero\""
+"def sign(n) -> \"positive\""
+"sign(0)"
+"sign(42)"
+
+"\nResult:"
+def sign(0) -> "zero"
+def sign(n) -> "positive"
+sign(0)
+sign(42)
+
+"\n_____________________________________________________________\n"
+"[3. Wildcards and literals]"
+"Use _ to ignore, or match literals directly."
+"def greet(\"Alice\") -> \"Hi, Alice!\""
+"def greet(_) -> \"Hello, someone else!\""
+"greet(\"Alice\")"
+"greet(\"Bob\")"
+
+"\nResult:"
+def greet("Alice") -> "Hi, Alice!"
+def greet(_) -> "Hello, someone else!"
+greet("Alice")
+greet("Bob")
+
+"\n_____________________________________________________________\n"
+"[4. Block-bodied functions with return]"
+"Use do ... end and return to produce a value."
+"def sumList(xs) do"
+"    total = 0"
+"    for n : xs do"
+"        total = total + n"
+"    end"
+"    return total"
+"end"
+"sumList([1, 2, 3, 4])"
+
+"\nResult:"
+def sumList(xs) do
+    total = 0
+    for n : xs do
+        total = total + n
+    end
+    return total
+end
+sumList([1, 2, 3, 4])
+
+"\n_____________________________________________________________\n"
+"[5. Lambdas (anonymous functions)]"
+"Lambdas use the arrow syntax too. Assign them to call later."
+"inc = \\x -> x + 1"
+"pairSwap = \\a, b -> [b, a]"
+"inc(10)"
+"pairSwap(1, 2)"
+
+"\nResult:"
+inc = \x -> x + 1
+pairSwap = \a, b -> [b, a]
+inc(10)
+pairSwap(1, 2)
+
+"\n_____________________________________________________________\n"
+"[6. Higher-order usage]"
+"Pass lambdas into other functions."
+"def applyTwice(f, x) -> f(f(x))"
+"applyTwice(\\n -> n * 2, 5)"
+
+"\nResult:"
+def applyTwice(f, x) -> f(f(x))
+applyTwice(\n -> n * 2, 5)

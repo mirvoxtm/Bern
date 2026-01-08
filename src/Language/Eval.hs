@@ -1,16 +1,21 @@
 module Language.Eval where
-import Control.Monad (foldM)
 import System.Exit (exitFailure)
+import System.IO.Unsafe (unsafePerformIO)
+import System.Directory (doesFileExist)
+import Data.Maybe (isJust)
+import Debug.Trace (trace)
 import Language.Ast
 import Data.Hashtable.Hashtable
 import Language.Helpers
+import Parsing.Parser (parseBernFile)
+import Text.Megaparsec (errorBundlePretty, sourcePosPretty)
 
--- Command interpreter returns the updated hashtable after running a command
 interpretCommand :: Command -> Hashtable String Value -> IO (Hashtable String Value)
 interpretCommand Skip table = return table
 
 interpretCommand (Print expr) table =
     case evaluate expr table of
+        Right Undefined -> return table
         Right val -> putStrLn (prettyValue val) >> return table
         Left err  -> die err
 
@@ -23,6 +28,8 @@ interpretCommand (Assign name expr) table =
         Right v@(Character _) -> return (insertHashtable table name v)
         Right v@(List _ _)    -> return (insertHashtable table name v)
         Right v@(Set _ _)     -> return (insertHashtable table name v)
+        Right v@(Function _)  -> return (insertHashtable table name v)
+        Right v@(Lambda _)    -> return (insertHashtable table name v)
         Right _               -> die "Unexpected value in assignment"
         Left err              -> die err
 
@@ -50,14 +57,25 @@ interpretCommand (Conditional cond thenCmd elseCmd) table =
 
 interpretCommand (Repeat count cmd) table =
     case evaluate count table of
-        Right (Integer n) -> foldM (\t _ -> interpretCommand cmd t) table [1..n]
+        Right (Integer n) -> loop n table
         Right _           -> die "Repeat count must be integer"
         Left err          -> die err
+  where
+    loop 0 t = return t
+    loop k t = do
+        t' <- interpretCommand cmd t
+        if hasReturn t'
+            then return t'
+            else loop (k-1) t'
 
 interpretCommand (While cond cmd) table =
     let loop t =
             case evaluate cond t of
-                Right (Boolean True)  -> interpretCommand cmd t >>= loop
+                Right (Boolean True)  -> do
+                    t' <- interpretCommand cmd t
+                    if hasReturn t'
+                        then return t'
+                        else loop t'
                 Right (Boolean False) -> return t
                 Right _               -> die "While condition must be boolean"
                 Left err              -> die err
@@ -67,21 +85,151 @@ interpretCommand (ForIn varName collection cmd) table =
     case evaluate collection table of
         Right coll ->
             case toIterable coll of
-                Right vals -> foldM (\tbl val -> interpretCommand cmd (insertHashtable tbl varName val)) table vals
+                Right vals -> loop vals table
                 Left err   -> die err
         Left err -> die err
+  where
+    loop [] t = return t
+    loop (v:vs) t = do
+        t' <- interpretCommand cmd (insertHashtable t varName v)
+        if hasReturn t'
+            then return t'
+            else loop vs t'
 
 interpretCommand (ForInCount varName idxName collection cmd) table =
     case evaluate collection table of
         Right coll ->
             case toIterable coll of
-                Right vals -> foldM (\tbl (val, idx) -> interpretCommand cmd (insertHashtable (insertHashtable tbl varName val) idxName (Integer idx))) table (zip vals [0..])
+                Right vals -> loop (zip vals [0..]) table
                 Left err   -> die err
         Left err -> die err
+  where
+    loop [] t = return t
+    loop ((v,idx):rest) t = do
+        let tWith = insertHashtable (insertHashtable t varName v) idxName (Integer idx)
+        t' <- interpretCommand cmd tWith
+        if hasReturn t'
+            then return t'
+            else loop rest t'
+
+interpretCommand (FunctionDef name clause) table = do
+    let newFunc = case lookupHashtable table name of
+                    Just (Function cs) -> Function (cs ++ [clause])
+                    Just _             -> Function [clause]
+                    Nothing            -> Function [clause]
+    return (insertHashtable table name newFunc)
+
+interpretCommand (Return expr) table =
+    case evaluate expr table of
+        Right v -> return (insertHashtable table "__return" v)
+        Left err -> die err
+
+interpretCommand (Import moduleName) table = do
+    -- Try lib/<name>.brn first, then <name>.brn
+    let libPath = "lib/" ++ moduleName ++ ".brn"
+    let localPath = moduleName ++ ".brn"
+    libExists <- doesFileExist libPath
+    let path = if libExists then libPath else localPath
+    fileExists <- doesFileExist path
+    if not fileExists
+        then die ("Module not found: " ++ moduleName)
+        else do
+            contents <- readFile path
+            case parseBernFile path contents of
+                Left err -> die ("Parse error in module " ++ moduleName ++ ":\n" ++ errorBundlePretty err)
+                Right cmd -> interpretCommand cmd table
 
 interpretCommand (Concat cmd1 cmd2) table = do
     table' <- interpretCommand cmd1 table
-    interpretCommand cmd2 table'
+    if hasReturn table'
+        then return table'
+        else interpretCommand cmd2 table'
+
+-- Apply a function or lambda value to arguments
+applyFunction :: Value -> [Value] -> Hashtable String Value -> Either String Value
+applyFunction (Function clauses) args table = applyClauses clauses args table
+applyFunction (Lambda clauses) args table = applyClauses clauses args table
+applyFunction _ _ _ = Left "Called value is not a function"
+
+applyClauses :: [Clause] -> [Value] -> Hashtable String Value -> Either String Value
+applyClauses [] _ _ = Left "No matching function clause"
+applyClauses (Clause patterns body : rest) args table =
+    case matchAll patterns args of
+        Nothing -> applyClauses rest args table
+        Just bindings ->
+            let newTable = foldl (\tbl (k,v) -> insertHashtable tbl k v) table bindings
+            in case body of
+                BodyExpr expr -> evaluate expr newTable
+                BodyBlock cmd ->
+                    -- Run block and look for __return; fall back to Undefined
+                    let resultTable = unsafePerformIO (interpretCommand cmd newTable)
+                    in case lookupHashtable resultTable "__return" of
+                        Just v  -> Right v
+                        Nothing -> Right Undefined
+
+-- Match argument list against pattern list, returning bindings if successful
+matchAll :: [Pattern] -> [Value] -> Maybe [(String, Value)]
+matchAll ps vs
+    | length ps /= length vs = Nothing
+    | otherwise = fmap concat (sequence (zipWith matchOne ps vs))
+
+matchOne :: Pattern -> Value -> Maybe [(String, Value)]
+matchOne PWildcard _ = Just []
+matchOne (PVar name) v = Just [(name, v)]
+matchOne (PInt n) (Integer m) | n == m = Just []
+matchOne (PDouble x) (Double y) | x == y = Just []
+matchOne (PBool b) (Boolean c) | b == c = Just []
+matchOne (PChar c) (Character d) | c == d = Just []
+matchOne (PString s) (Text t _) | s == t = Just []
+matchOne (PString s) (TextLiteral t _) | s == t = Just []
+
+-- List pattern: match empty list [] or list of patterns [a, b, c]
+matchOne (PList []) (List [] _) = Just []
+matchOne (PList pats) (List vals _)
+    | length pats == length vals = matchAll pats vals
+    | otherwise = Nothing
+
+-- Cons pattern: [head|tail] matches non-empty list
+matchOne (PCons headPat tailPat) (List (v:vs) _) = do
+    headBindings <- matchOne headPat v
+    tailBindings <- matchOne tailPat (List vs (length vs))
+    return (headBindings ++ tailBindings)
+matchOne (PCons _ _) (List [] _) = Nothing  -- Can't match cons on empty list
+
+-- String as list of characters: [] matches empty string
+matchOne (PList []) (Text "" _) = Just []
+matchOne (PList []) (TextLiteral "" _) = Just []
+
+-- String as list of characters: [head|tail] matches non-empty string
+matchOne (PCons headPat tailPat) (Text (c:cs) _) = do
+    headBindings <- matchOne headPat (Character c)
+    tailBindings <- matchOne tailPat (Text cs (length cs))
+    return (headBindings ++ tailBindings)
+matchOne (PCons _ _) (Text "" _) = Nothing  -- Can't match cons on empty string
+
+matchOne (PCons headPat tailPat) (TextLiteral (c:cs) _) = do
+    headBindings <- matchOne headPat (Character c)
+    tailBindings <- matchOne tailPat (TextLiteral cs (length cs))
+    return (headBindings ++ tailBindings)
+matchOne (PCons _ _) (TextLiteral "" _) = Nothing
+
+-- Set pattern: match empty set {} or set of patterns {a, b, c}
+matchOne (PSet []) (Set [] _) = Just []
+matchOne (PSet pats) (Set vals _)
+    | length pats == length vals = matchAll pats vals
+    | otherwise = Nothing
+
+-- Set cons pattern: {head|tail} matches non-empty set
+matchOne (PSetCons headPat tailPat) (Set (v:vs) _) = do
+    headBindings <- matchOne headPat v
+    tailBindings <- matchOne tailPat (Set vs (length vs))
+    return (headBindings ++ tailBindings)
+matchOne (PSetCons _ _) (Set [] _) = Nothing  -- Can't match cons on empty set
+
+matchOne _ _ = Nothing
+
+hasReturn :: Hashtable String Value -> Bool
+hasReturn tbl = isJust (lookupHashtable tbl "__return")
 
 -- Fatal error helper
 die :: String -> IO a
@@ -97,6 +245,11 @@ toIterable _             = Left "Cannot iterate over this type"
 
 -- Our 'evaluate' function receives an Expression and a Hashtable (for variables)
 evaluate :: Expression -> Hashtable String Value -> Either String Value
+-- Carry source position for better error reporting
+evaluate (WithPos pos expr) table =
+    case evaluate expr table of
+        Left err -> Left (sourcePosPretty pos ++ ": " ++ err)
+        Right v  -> Right v
 -- If a Number is received, then it is itself.
 evaluate (Number n) _ = (Right (Integer n))
 
@@ -192,6 +345,16 @@ evaluate (UnaryOperator op expr) table = do
     val <- evaluate expr table
     -- Call evalUnaryOp when value is fully found.
     evalUnaryOp op val
+
+evaluate (LambdaExpr params bodyExpr) _table =
+    Right (Lambda [Clause params (BodyExpr bodyExpr)])
+
+evaluate (FunctionCall name args) table = do
+    callee <- case lookupHashtable table name of
+                Just v -> Right v
+                Nothing -> Left "Function not found"
+    argVals <- mapM (`evaluate` table) args
+    applyFunction callee argVals table
 
 evaluate _ _ = Left "Unsupported Expression"
 
@@ -351,6 +514,11 @@ evalArith Divide (Double l) (Integer r)
     -- Not A Number when attempting to divide by Zero
     | r == 0    = Right NaN
     | otherwise = Right (Double (l / fromIntegral r))
+-- (x % y)
+evalArith Modulo (Integer l) (Integer r)
+    | r == 0    = Right NaN
+    | otherwise = Right (Integer (l `mod` r))
+evalArith Modulo _ _ = Left "Type error: modulo requires integers"
 -- (x % y)
 evalArith Modulo (Integer l) (Integer r)
     | r == 0    = Right NaN
@@ -558,6 +726,12 @@ evalUnion Concatenation (Set s1 len1) (Set s2 len2) =
     in Right (Set combined (length combined))
 
 evalUnion Concatenation (Text t1 len1) (Text t2 len2) = Right (Text (t1 ++ t2) (len1 + len2))
+evalUnion Concatenation (Character c) (Text t len) = Right (Text (c : t) (len + 1))
+evalUnion Concatenation (Text t len) (Character c) = Right (Text (t ++ [c]) (len + 1))
+evalUnion Concatenation (Character c1) (Character c2) = Right (Text [c1, c2] 2)
+evalUnion Concatenation (TextLiteral t1 len1) (TextLiteral t2 len2) = Right (TextLiteral (t1 ++ t2) (len1 + len2))
+evalUnion Concatenation (Character c) (TextLiteral t len) = Right (TextLiteral (c : t) (len + 1))
+evalUnion Concatenation (TextLiteral t len) (Character c) = Right (TextLiteral (t ++ [c]) (len + 1))
 
 -- (a <| b) - Union
 evalUnion Union (Set s1 len1) (Set s2 len2) =
@@ -609,6 +783,8 @@ prettyValue (List vals _) = "[" ++ intercalateWith ", " (map prettyValue vals) +
 prettyValue (Set vals _) = "{" ++ intercalateWith ", " (map prettyValue vals) ++ "}"
 prettyValue (Object pairs) = "#{" ++ intercalateWith ", " (map (\(k,v) -> k ++ ": " ++ prettyValue v) pairs) ++ "}#"
 prettyValue (AlgebraicDataType name vals) = name ++ "(" ++ intercalateWith ", " (map prettyValue vals) ++ ")"
+prettyValue (Function _) = "<function>"
+prettyValue (Lambda _) = "<lambda>"
 
 -- Helper for joining strings
 intercalateWith :: String -> [String] -> String
