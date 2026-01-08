@@ -1,0 +1,12 @@
+"_____________________________________________________________"
+"In Bern, a user input can be captured with the input() call."
+"This call acts very similar to Python's:"
+"_____________________________________________________________\n"
+"name = input(\"Type your name: \")"
+name = input("Type your name: ")
+
+"\nThis data can then be treated or evaluated:"
+"name"
+
+"\nResult:"
+name

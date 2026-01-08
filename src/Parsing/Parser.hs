@@ -36,6 +36,13 @@ symbol = L.symbol sc
 symbolNoNl :: String -> Parser String
 symbolNoNl = L.symbol scn
 
+-- Keyword parser (ensures keyword is not followed by alphanumeric/underscore)
+keyword :: String -> Parser String
+keyword kw = lexeme $ try $ do
+    _ <- string kw
+    notFollowedBy (alphaNumChar <|> char '_')
+    return kw
+
 -- Parser for numbers
 parseNumber :: Parser Expression
 parseNumber = lexeme $ do
@@ -292,13 +299,27 @@ parseAssignment = try parseIndexedAssign <|> parseSimpleAssign
         _ <- symbol "="
         expr <- parseExpression
         return $ AssignIndex varName idxs expr
-    parseSimpleAssign = try $ do
+    parseSimpleAssign = do
         (varName, idxs) <- lexeme parseVarWithIndices
         if not (null idxs) then fail "indexed" else pure ()
         _ <- scn
         _ <- symbol "="
-        expr <- parseExpression
-        return $ Assign varName expr
+        -- Check if right-hand side is input() call
+        inputCall <- optional $ try $ do
+            _ <- keyword "input"
+            _ <- symbolNoNl "("
+            promptExpr <- optional parseExpression
+            _ <- symbolNoNl ")"
+            return promptExpr
+        case inputCall of
+            Just promptExpr -> 
+                let prompt = case promptExpr of
+                               Just p  -> p
+                               Nothing -> StringLiteral ""
+                in return $ Input varName prompt
+            Nothing -> do
+                expr <- parseExpression
+                return $ Assign varName expr
 
 parsePrint :: Parser Command
 parsePrint = do
@@ -393,7 +414,8 @@ parseWhile = do
     return $ While cond cmd
 
 parseSingleCommand :: Parser Command
-parseSingleCommand = try parseImport
+parseSingleCommand = try parseAssignment
+               <|> try parseImport
                <|> try parseFunctionDef
                <|> try parseReturn
                <|> try parsePrint
@@ -401,7 +423,6 @@ parseSingleCommand = try parseImport
                <|> try parseForIn
                <|> try parseRepeat
                <|> try parseWhile
-               <|> try parseAssignment
                <|> (Print <$> parseExpression)
 
 parseImport :: Parser Command

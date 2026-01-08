@@ -13,6 +13,17 @@ import Text.Megaparsec (errorBundlePretty, sourcePosPretty)
 interpretCommand :: Command -> Hashtable String Value -> IO (Hashtable String Value)
 interpretCommand Skip table = return table
 
+interpretCommand (Input varName promptExpr) table = do
+    promptVal <- case evaluate promptExpr table of
+                    Right (Text s _) -> return s
+                    Right (TextLiteral s _) -> return s
+                    Right _ -> die "Prompt must be a string"
+                    Left err -> die err
+    putStr promptVal
+    input <- getLine
+    let newTable = insertHashtable table varName (Text input (length input))
+    return newTable
+
 interpretCommand (Print expr) table =
     case evaluate expr table of
         Right Undefined -> return table

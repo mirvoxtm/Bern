@@ -104,4 +104,5 @@ data Command = Skip
                 | FunctionDef String Clause                   -- def name(params) do ... end / -> expr / pattern clauses
                 | Return Expression
                 | Import String                               -- import module
+                | Input String Expression                     -- input var prompt
                 deriving (Show, Eq)
