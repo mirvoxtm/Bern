@@ -54,7 +54,7 @@ assert_equals("flip", flip(\x, y -> x - y, 5, 2), -3)
 
 -- typeOf / length
 assert_equals("typeOf list", typeOf([1,2,3]), "List")
-assert_equals("typeOf string", typeOf("hi"), "Text")
+assert_equals("typeOf string", typeOf("hi"), "List")
 assert_equals("length list", length([1,2,3,4]), 4)
 assert_equals("length string", length("bern"), 4)
 assert_equals("length set", length({1,2,3}), 3)
@@ -62,3 +62,6 @@ assert_equals("length set", length({1,2,3}), 3)
 -- approx helper sanity
 assert_approx("approxEq", 1.0005, 1.0, 0.001)
 assert_equals("to_int", to_int("12345"), 12345)
+
+assert_equals("index_of", index_of([10,20,30,20], 20), 1)
+assert_equals("index_of not found", index_of([10,20,30], 40), -1)

@@ -1,6 +1,7 @@
 "_____________________________________________________________"
 "Bern has various specific implementations for arrays."
 "To be specific, Bern has Lists and Sets. In this module, we will talk about lists."
+"It is important to note that in Bern, Strings are also treated as Lists of characters."
 "_____________________________________________________________\n"
 "[1. Lists]"
 "A list is a type of collection of data that are the same type."

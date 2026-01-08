@@ -32,10 +32,6 @@ def product(list) -> foldl(list, 1, \acc, x -> acc * x)
 def reverse_list([]) -> []
 def reverse_list([head|tail]) -> reverse_list(tail) <> [head]
 
--- Reverse a string (returns a string)
-def reverse_string("") -> ""
-def reverse_string([head|tail]) -> reverse_string(tail) <> head
-
 -- Reverse a set
 def reverse_set({}) -> {}
 def reverse_set({head|tail}) -> reverse_set(tail) <> {head}
@@ -44,15 +40,10 @@ def reverse_set({head|tail}) -> reverse_set(tail) <> {head}
 def reverse(x) do
     if (::x == "List") then
         return reverse_list(x)
-    else if (::x == "Text") then
-            return reverse_string(x)
-        else if (::x == "Set") then
-                return reverse_set(x)
-                else 
-                    "Reverse function not supported for this type."
-                end
-            end
-        end
+    else if (::x == "Set") then
+            return reverse_set(x)
+    else 
+        "Reverse function not supported for this type."
     end
 end
 -- Take first n elements
@@ -187,4 +178,43 @@ def to_int(s) do
         return helper(tail, newAcc)
     end
     return helper(s, 0)
+end
+
+-- get the index of an element in a list or set.
+def index_of(x, target) do
+    if (::x == "List") then
+        return index_of_list(x, target)
+    else if (::x == "Set") then
+            return index_of_set(x, target)
+    else 
+        return -1
+    end
+end
+
+def index_of_list([], _) -> -1
+def index_of_list([head|tail], target) do
+    if (head == target) then
+        return 0
+    else
+        idx = index_of_list(tail, target)
+        if (idx == -1) then
+            return -1
+        else
+            return idx + 1
+        end
+    end
+end
+
+def index_of_set({}, _) -> -1
+def index_of_set({head|tail}, target) do
+    if (head == target) then
+        return 0
+    else
+        idx = index_of_set(tail, target)
+        if (idx == -1) then
+            return -1
+        else
+            return idx + 1
+        end
+    end
 end

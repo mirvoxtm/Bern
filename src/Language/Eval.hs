@@ -15,13 +15,13 @@ interpretCommand Skip table = return table
 
 interpretCommand (Input varName promptExpr) table = do
     promptVal <- case evaluate promptExpr table of
-                    Right (Text s _) -> return s
-                    Right (TextLiteral s _) -> return s
-                    Right _ -> die "Prompt must be a string"
+                    Right v -> case valueToString v of
+                                  Just s  -> return s
+                                  Nothing -> die "Prompt must be a string"
                     Left err -> die err
     putStr promptVal
     input <- getLine
-    let newTable = insertHashtable table varName (Text input (length input))
+    let newTable = insertHashtable table varName (List (map Character input) (length input))
     return newTable
 
 interpretCommand (Print expr) table =
@@ -35,7 +35,6 @@ interpretCommand (Assign name expr) table =
         Right v@(Integer _)   -> return (insertHashtable table name v)
         Right v@(Double _)    -> return (insertHashtable table name v)
         Right v@(Boolean _)   -> return (insertHashtable table name v)
-        Right v@(Text _ _)    -> return (insertHashtable table name v)
         Right v@(Character _) -> return (insertHashtable table name v)
         Right v@(List _ _)    -> return (insertHashtable table name v)
         Right v@(Set _ _)     -> return (insertHashtable table name v)
@@ -51,8 +50,6 @@ interpretCommand (AssignIndex name idxExprs expr) table = do
                   Nothing -> die "Variable not found"
     idxVals <- mapM (\ie -> case evaluate ie table of
                               Right (Integer n)      -> return (IdxInt n)
-                              Right (Text t _)       -> return (IdxKey t)
-                              Right (TextLiteral t _) -> return (IdxKey t)
                               Right (Character c)    -> return (IdxKey [c])
                               Right _                -> die "Index must be integer or string (in case of objects)"
                               Left err               -> die err) idxExprs
@@ -195,8 +192,8 @@ matchOne (PInt n) (Integer m) | n == m = Just []
 matchOne (PDouble x) (Double y) | x == y = Just []
 matchOne (PBool b) (Boolean c) | b == c = Just []
 matchOne (PChar c) (Character d) | c == d = Just []
-matchOne (PString s) (Text t _) | s == t = Just []
-matchOne (PString s) (TextLiteral t _) | s == t = Just []
+matchOne (PString s) (List vs _) | allCharacter vs && map (
+    \(Character c) -> c) vs == s = Just []
 
 -- List pattern: match empty list [] or list of patterns [a, b, c]
 matchOne (PList []) (List [] _) = Just []
@@ -210,23 +207,6 @@ matchOne (PCons headPat tailPat) (List (v:vs) _) = do
     tailBindings <- matchOne tailPat (List vs (length vs))
     return (headBindings ++ tailBindings)
 matchOne (PCons _ _) (List [] _) = Nothing  -- Can't match cons on empty list
-
--- String as list of characters: [] matches empty string
-matchOne (PList []) (Text "" _) = Just []
-matchOne (PList []) (TextLiteral "" _) = Just []
-
--- String as list of characters: [head|tail] matches non-empty string
-matchOne (PCons headPat tailPat) (Text (c:cs) _) = do
-    headBindings <- matchOne headPat (Character c)
-    tailBindings <- matchOne tailPat (Text cs (length cs))
-    return (headBindings ++ tailBindings)
-matchOne (PCons _ _) (Text "" _) = Nothing  -- Can't match cons on empty string
-
-matchOne (PCons headPat tailPat) (TextLiteral (c:cs) _) = do
-    headBindings <- matchOne headPat (Character c)
-    tailBindings <- matchOne tailPat (TextLiteral cs (length cs))
-    return (headBindings ++ tailBindings)
-matchOne (PCons _ _) (TextLiteral "" _) = Nothing
 
 -- Set pattern: match empty set {} or set of patterns {a, b, c}
 matchOne (PSet []) (Set [] _) = Just []
@@ -254,9 +234,13 @@ die msg = putStrLn ("Error: " ++ msg) >> exitFailure
 toIterable :: Value -> Either String [Value]
 toIterable (List vals _) = Right vals
 toIterable (Set vals _)  = Right vals
-toIterable (Text s _)    = Right (map Character s)
-toIterable (TextLiteral s _) = Right (map Character s)
+toIterable v@(List _ _) | Just s <- valueToString v = Right (map Character s)
 toIterable _             = Left "Cannot iterate over this type"
+
+-- Check if value is a list of characters and return the string
+valueToString :: Value -> Maybe String
+valueToString (List vals _) | allCharacter vals = Just (map (\(Character c) -> c) vals)
+valueToString _ = Nothing
 
 -- Our 'evaluate' function receives an Expression and a Hashtable (for variables)
 evaluate :: Expression -> Hashtable String Value -> Either String Value
@@ -274,7 +258,7 @@ evaluate (DoubleNum d) _ = (Right (Double d))
 evaluate (BoolLiteral b) _ = Right (Boolean b)
 
 -- String literal
-evaluate (StringLiteral s) _ = Right (Text s (length s))
+evaluate (StringLiteral s) _ = Right (List (map Character s) (length s))
 
 -- Character literal
 evaluate (CharLiteral c) _ = Right (Character c)
@@ -329,17 +313,12 @@ evaluate (Index expr idxExpr) table = do
         (Set vals len, Integer i)
             | i >= 0 && i < len -> Right (vals !! i)
             | otherwise -> Left ("Index out of bounds: " ++ show i)
-        (Text s len, Integer i)
-            | i >= 0 && i < len -> Right (Character (s !! i))
-            | otherwise -> Left ("Index out of bounds: " ++ show i)
-        (Object kvs, Text key _) ->
-            case lookup key kvs of
-                Just v  -> Right v
-                Nothing -> Left ("Key not found: " ++ key)
-        (Object kvs, TextLiteral key _) ->
-            case lookup key kvs of
-                Just v  -> Right v
-                Nothing -> Left ("Key not found: " ++ key)
+        (Object kvs, lst@(List _ _)) ->
+            case valueToString lst of
+                Just key -> case lookup key kvs of
+                                Just v  -> Right v
+                                Nothing -> Left ("Key not found: " ++ key)
+                Nothing -> Left "Index must be integer or string (in case of objects)"
         (Object kvs, Character c) ->
             case lookup [c] kvs of
                 Just v  -> Right v
@@ -414,7 +393,30 @@ evalArith Add (Integer l) (Integer r) = Right (Integer (l + r))
 evalArith Add (Double l) (Double r) = Right (Double (l + r))
 evalArith Add (Integer l) (Double r) = Right (Double (fromIntegral l + r))
 evalArith Add (Double l) (Integer r) = Right (Double (l + fromIntegral r))
--- Map scalar addition over list elements
+-- String-like (lists of chars) must come before numeric list cases
+evalArith Add l1@(List _ _) l2@(List _ _)
+    | Just s1 <- valueToString l1
+    , Just s2 <- valueToString l2
+    = Right (List (map Character (s1 ++ s2)) (length s1 + length s2))
+evalArith Add l@(List _ _) (Character c)
+    | Just s <- valueToString l
+    = Right (List (map Character (s ++ [c])) (length s + 1))
+evalArith Add (Character c) l@(List _ _)
+    | Just s <- valueToString l
+    = Right (List (map Character ([c] ++ s)) (1 + length s))
+evalArith Add l@(List _ _) (Integer r)
+    | Just s <- valueToString l
+    = let sr = show r in Right (List (map Character (s ++ sr)) (length s + length sr))
+evalArith Add (Integer l) r@(List _ _)
+    | Just s <- valueToString r
+    = let sl = show l in Right (List (map Character (sl ++ s)) (length sl + length s))
+evalArith Add l@(List _ _) (Double r)
+    | Just s <- valueToString l
+    = let sr = show r in Right (List (map Character (s ++ sr)) (length s + length sr))
+evalArith Add (Double l) r@(List _ _)
+    | Just s <- valueToString r
+    = let sl = show l in Right (List (map Character (sl ++ s)) (length sl + length s))
+-- Map scalar addition over list elements (numeric lists)
 evalArith Add (List vals len) scalar@(Integer _) = do
     vals' <- mapM (numericAdd scalar) vals
     Right (List vals' len)
@@ -427,14 +429,6 @@ evalArith Add scalar@(Integer _) (List vals len) = do
 evalArith Add scalar@(Double _) (List vals len) = do
     vals' <- mapM (numericAdd scalar) vals
     Right (List vals' len)
-evalArith Add (Text l ll) (Text r rl) = Right (Text (l ++ r) (ll + rl))
-evalArith Add (Text l ll) (Character r) = Right (Text (l ++ [r]) (ll + 1))
-evalArith Add (Character l) (Text r rl) = Right (Text ([l] ++ r) (1 + rl))
-evalArith Add (Character l) (Character r) = Right (Text ([l, r]) 2)
-evalArith Add (Text l ll) (Integer r) = Right (Text (l ++ show r) (ll + length (show r)))
-evalArith Add (Integer l) (Text r rl) = Right (Text (show l ++ r) (length (show l) + rl))
-evalArith Add (Text l ll) (Double r) = Right (Text (l ++ show r) (ll + length (show r)))
-evalArith Add (Double l) (Text r rl) = Right (Text (show l ++ r) (length (show l) + rl))
 
 -- On the case of lists, if the lists are of the same size, then apply the sum
 -- of each element (strictly of same type)
@@ -709,7 +703,9 @@ evalComparison Equal (Double l) (Double r) = Right (Boolean (l == r))
 evalComparison Equal (Integer l) (Double r) = Right (Boolean (fromIntegral l == r))
 evalComparison Equal (Double l) (Integer r) = Right (Boolean (l == fromIntegral r))
 evalComparison Equal (Boolean l) (Boolean r) = Right (Boolean (l == r))
-evalComparison Equal (Text l _) (Text r _) = Right (Boolean (l == r))
+evalComparison Equal v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 = Right (Boolean (s1 == s2))
 evalComparison Equal (Character l) (Character r) = Right (Boolean (l == r))
 evalComparison Equal (List l _) (List r _) = Right (Boolean (l == r))
 evalComparison Equal (Set l _) (Set r _) = Right (Boolean (l == r))
@@ -717,7 +713,9 @@ evalComparison Equal (Set l _) (Set r _) = Right (Boolean (l == r))
 evalComparison Different (Integer l) (Integer r) = Right (Boolean (l /= r))
 evalComparison Different (Double l) (Double r) = Right (Boolean (l /= r))
 evalComparison Different (Boolean l) (Boolean r) = Right (Boolean (l /= r))
-evalComparison Different (Text l _) (Text r _) = Right (Boolean (l /= r))
+evalComparison Different v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 = Right (Boolean (s1 /= s2))
 evalComparison Different (Character l) (Character r) = Right (Boolean (l /= r))
 evalComparison Different (List l _) (List r _) = Right (Boolean (l /= r))
 evalComparison Different (Set l _) (Set r _) = Right (Boolean (l /= r))
@@ -733,26 +731,34 @@ evalComparison Or _ _ = Left "Type error in logical operation"
 -- (x > y)
 evalComparison GreaterThan (Integer l) (Integer r) = Right (Boolean (l > r))
 evalComparison GreaterThan (Double l) (Double r) = Right (Boolean (l > r))
-evalComparison GreaterThan (Text l ls) (Text r rs) = Right (Boolean (ls > rs))
+evalComparison GreaterThan v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 = Right (Boolean (s1 > s2))
 evalComparison GreaterThan (List l ls) (List r rs) = Right (Boolean (ls > rs))
 evalComparison GreaterThan (Set l ls) (Set r rs) = Right (Boolean (ls > rs))
 
 -- (x < y)
 evalComparison LessThan (Integer l) (Integer r) = Right (Boolean (l < r))
 evalComparison LessThan (Double l) (Double r) = Right (Boolean (l < r))
-evalComparison LessThan (Text l ls) (Text r rs) = Right (Boolean (ls < rs))
+evalComparison LessThan v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 = Right (Boolean (s1 < s2))
 evalComparison LessThan (List l ls) (List r rs) = Right (Boolean (ls < rs))
 evalComparison LessThan (Set l ls) (Set r rs) = Right (Boolean (ls < rs))
 -- (x >= y)
 evalComparison GreaterThanEq (Integer l) (Integer r) = Right (Boolean (l >= r))
 evalComparison GreaterThanEq (Double l) (Double r) = Right (Boolean (l >= r))
-evalComparison GreaterThanEq (Text l ls) (Text r rs) = Right (Boolean (ls >= rs))
+evalComparison GreaterThanEq v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 = Right (Boolean (s1 >= s2))
 evalComparison GreaterThanEq (List l ls) (List r rs) = Right (Boolean (ls >= rs))
 evalComparison GreaterThanEq (Set l ls) (Set r rs) = Right (Boolean (ls >= rs))
 -- (x <= y)
 evalComparison LessThanEq (Integer l) (Integer r) = Right (Boolean (l <= r))
 evalComparison LessThanEq (Double l) (Double r) = Right (Boolean (l <= r))
-evalComparison LessThanEq (Text l ls) (Text r rs) = Right (Boolean (ls <= rs))
+evalComparison LessThanEq v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 = Right (Boolean (s1 <= s2))
 evalComparison LessThanEq (List l ls) (List r rs) = Right (Boolean (ls <= rs))
 evalComparison LessThanEq (Set l ls) (Set r rs) = Right (Boolean (ls <= rs))
 
@@ -764,30 +770,34 @@ evalUnaryOp :: UnaryOperation -> Value -> Either String Value
 evalUnaryOp Negate (Integer n) = Right (Integer (-n))
 evalUnaryOp Negate (Double d) = Right (Double (-d))
 evalUnaryOp Not (Boolean b) = Right (Boolean (not b))
-evalUnaryOp TypeOf v = Right (Text (getValueType v) (length (getValueType v)))
-evalUnaryOp SizeOf (Text _ len) = Right (Integer len)
+evalUnaryOp TypeOf v =
+    let t = getValueType v
+    in Right (List (map Character t) (length t))
+evalUnaryOp SizeOf v
+    | Just s <- valueToString v = Right (Integer (length s))
 evalUnaryOp SizeOf (List _ len) = Right (Integer len)
 evalUnaryOp SizeOf (Set _ len) = Right (Integer len)
 evalUnaryOp _ _ = Left "Type error in unary operation"
 
 evalUnion :: BinaryOperation -> Value -> Value -> Either String Value
 -- (a <> b)
-evalUnion Concatenation (List l1 len1) (List l2 len2) =
-    let combined = l1 ++ l2
-    in if allSameType combined
-          then Right (List combined (len1 + len2))
-          else Left "Type error: list concatenation requires elements of the same type"
+evalUnion Concatenation (List l1 len1) (List l2 len2)
+    | allCharacter l1 && allCharacter l2 =
+        let combined = l1 ++ l2
+        in Right (List combined (len1 + len2))
+    | allSameType (l1 ++ l2) = Right (List (l1 ++ l2) (len1 + len2))
+    | otherwise = Left "Type error: list concatenation requires elements of the same type"
 evalUnion Concatenation (Set s1 len1) (Set s2 len2) =
     let combined = s1 ++ filter (`notElem` s1) s2
     in Right (Set combined (length combined))
 
-evalUnion Concatenation (Text t1 len1) (Text t2 len2) = Right (Text (t1 ++ t2) (len1 + len2))
-evalUnion Concatenation (Character c) (Text t len) = Right (Text (c : t) (len + 1))
-evalUnion Concatenation (Text t len) (Character c) = Right (Text (t ++ [c]) (len + 1))
-evalUnion Concatenation (Character c1) (Character c2) = Right (Text [c1, c2] 2)
-evalUnion Concatenation (TextLiteral t1 len1) (TextLiteral t2 len2) = Right (TextLiteral (t1 ++ t2) (len1 + len2))
-evalUnion Concatenation (Character c) (TextLiteral t len) = Right (TextLiteral (c : t) (len + 1))
-evalUnion Concatenation (TextLiteral t len) (Character c) = Right (TextLiteral (t ++ [c]) (len + 1))
+evalUnion Concatenation v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2
+    = let combined = s1 ++ s2
+      in Right (List (map Character combined) (length combined))
+evalUnion Concatenation (Character c1) (Character c2) =
+    Right (List [Character c1, Character c2] 2)
 
 -- (a <| b) - Union
 evalUnion Union (Set s1 len1) (Set s2 len2) =
@@ -796,9 +806,11 @@ evalUnion Union (Set s1 len1) (Set s2 len2) =
 evalUnion Union (List l1 len1) (List l2 len2) =
     let combined = l1 ++ filter (`notElem` l1) l2
     in Right (List combined (length combined))
-evalUnion Union (Text t1 len1) (Text t2 len2) =
-    let combinedStr = t1 ++ filter (`notElem` t1) t2
-    in Right (Text combinedStr (length combinedStr))
+evalUnion Union v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 =
+        let combinedStr = s1 ++ filter (`notElem` s1) s2
+        in Right (List (map Character combinedStr) (length combinedStr))
 
 -- (a |> b) - Intersection
 evalUnion Intersection (Set s1 len1) (Set s2 len2) =
@@ -807,9 +819,11 @@ evalUnion Intersection (Set s1 len1) (Set s2 len2) =
 evalUnion Intersection (List l1 len1) (List l2 len2) =
     let common = filter (`elem` l2) l1
     in Right (List common (length common))
-evalUnion Intersection (Text t1 len1) (Text t2 len2) =
-    let commonChars = filter (`elem` t2) t1
-    in Right (Text commonChars (length commonChars))
+evalUnion Intersection v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 =
+        let commonChars = filter (`elem` s2) s1
+        in Right (List (map Character commonChars) (length commonChars))
 
 -- (a </> b) - Difference
 evalUnion Difference (Set s1 len1) (Set s2 len2) =
@@ -818,9 +832,11 @@ evalUnion Difference (Set s1 len1) (Set s2 len2) =
 evalUnion Difference (List l1 len1) (List l2 len2) =
     let diff = filter (`notElem` l2) l1
     in Right (List diff (length diff))
-evalUnion Difference (Text t1 len1) (Text t2 len2) =
-    let diffChars = filter (`notElem` t2) t1
-    in Right (Text diffChars (length diffChars))
+evalUnion Difference v1 v2
+    | Just s1 <- valueToString v1
+    , Just s2 <- valueToString v2 =
+        let diffChars = filter (`notElem` s2) s1
+        in Right (List (map Character diffChars) (length diffChars))
 
 evalUnion _ _ _ = Left "Type error in Array operation"
 
@@ -832,8 +848,7 @@ prettyValue NaN = "NaN"
 prettyValue Undefined = "undefined"
 prettyValue (Boolean True) = "true"
 prettyValue (Boolean False) = "false"
-prettyValue (Text s _) = s
-prettyValue (TextLiteral s _) = s
+prettyValue v | Just s <- valueToString v = s
 prettyValue (Character c) = [c]
 prettyValue (List vals _) = "[" ++ intercalateWith ", " (map prettyValue vals) ++ "]"
 prettyValue (Set vals _) = "{" ++ intercalateWith ", " (map prettyValue vals) ++ "}"

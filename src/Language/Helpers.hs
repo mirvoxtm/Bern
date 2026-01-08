@@ -10,9 +10,8 @@ getValueType (Boolean _) = "Boolean"
 getValueType (Set _ _) = "Set"
 getValueType (List _ _) = "List"
 getValueType (Object _) = "Object"
-getValueType (TextLiteral _ _) = "TextLiteral"
 getValueType (Character _) = "Character"
-getValueType (Text _ _) = "Text"
+getValueType (List vals _) | allCharacter vals = "Text"
 getValueType (Function _) = "Function"
 getValueType (Lambda _) = "Lambda"
 getValueType (AlgebraicDataType name _) = name
@@ -26,12 +25,20 @@ getValueOnly (Boolean b) = show b
 getValueOnly (Set s _) = show s
 getValueOnly (List l _) = show l
 getValueOnly (Object o) = show o
-getValueOnly (TextLiteral t _) = t
 getValueOnly (Character c) = [c]
-getValueOnly (Text t _) = t
+getValueOnly (List vals _) | allCharacter vals = concatMap getValueOnly vals
 getValueOnly (Function _) = "<function>"
 getValueOnly (Lambda _) = "<lambda>"
 
 allSameType :: [Value] -> Bool
 allSameType [] = True
 allSameType (x:xs) = all (\v -> getValueType v == getValueType x) xs
+
+allCharacter :: [Value] -> Bool
+allCharacter [] = True
+allCharacter (x:xs) = case x of
+    Character _ -> all isCharacter xs
+    _           -> False
+  where
+    isCharacter (Character _) = True
+    isCharacter _             = False

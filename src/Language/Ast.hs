@@ -81,7 +81,6 @@ data Value = Integer Int
             | Object [(String, Value)]    -- An Object (#{ }#) holds key-value pairs
             | TextLiteral String Length   -- A String ([| |]) that preserves spaces and can add variables directly in it (like ```${name}```)
             | Character Char
-            | Text String Length          -- A String with its length
             | Function [Clause]
             | Lambda [Clause]
             | AlgebraicDataType String [Value] -- An Algebraic Data Type (ADT) with its name and values
