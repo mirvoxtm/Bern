@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bern - Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #5b5f97;
+            --primary-dark: #4a4d7a;
+            --accent: #7b9fc4;
+            --bg: #ffffff;
+            --text: #333;
+            --text-light: #666;
+            --border: #ddd;
+            --code-bg: #f8f8f8;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        header {
+            background: white;
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 0;
+        }
+
+        .header-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        nav {
+            display: flex;
+            gap: 2rem;
+        }
+
+        nav a {
+            color: var(--text);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--primary);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .hero .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+        }
+
+        .feature-section {
+            display: grid;
+            grid-template-columns: 80px 1fr;
+            gap: 2rem;
+            margin: 4rem 0;
+            padding: 2rem 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .feature-section:first-of-type {
+            border-top: none;
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            text-align: center;
+        }
+
+        .feature-content h2 {
+            color: var(--primary-dark);
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-content p {
+            color: var(--text-light);
+            margin-bottom: 1rem;
+            font-size: 1.05rem;
+        }
+
+        .code-example {
+            display: grid;
+            grid-template-columns: 40px 1fr;
+            gap: 0;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin: 1.5rem 0;
+            overflow: hidden;
+        }
+
+        .line-numbers {
+            background: #eee;
+            padding: 1rem 0.5rem;
+            text-align: right;
+            color: #999;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            user-select: none;
+            border-right: 1px solid var(--border);
+        }
+
+        .code-content {
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-content pre {
+            margin: 0;
+            white-space: pre;
+            text-indent: 0;
+        }
+
+        .code-content code {
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: var(--text);
+            font-feature-settings: 'liga' 1, 'calt' 1;
+            white-space: pre;
+            text-indent: 0;
+            display: block;
+        }
+
+        .doc-section {
+            margin: 3rem 0;
+        }
+
+        .doc-section h2 {
+            color: var(--primary);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .doc-section h3 {
+            color: var(--primary-dark);
+            font-size: 1.3rem;
+            margin: 2rem 0 1rem;
+        }
+
+        .doc-section p {
+            color: var(--text-light);
+            margin-bottom: 1rem;
+        }
+
+        code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: var(--primary-dark);
+            font-feature-settings: 'liga' 1, 'calt' 1;
+        }
+
+        .simple-code {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            font-feature-settings: 'liga' 1, 'calt' 1;
+            white-space: pre;
+        }
+
+        .simple-code .keyword { color: #d73a49; font-weight: 500; }
+        .simple-code .function { color: #6f42c1; }
+        .simple-code .string { color: #22863a; }
+        .simple-code .number { color: #005cc5; }
+        .simple-code .comment { color: #6a737d; font-style: italic; }
+        .simple-code .operator { color: #d73a49; }
+        .simple-code .type { color: #005cc5; font-weight: 500; }
+
+        .also-featuring {
+            background: #f9f9f9;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2rem;
+            margin: 3rem 0;
+        }
+
+        .also-featuring h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+
+        .also-featuring ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .also-featuring li {
+            padding: 0.4rem 0;
+            color: var(--text-light);
+        }
+
+        .also-featuring li::before {
+            content: "• ";
+            color: var(--primary);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        /* Syntax Highlighting */
+        .keyword { color: #d73a49; font-weight: 500; }
+        .function { color: #6f42c1; }
+        .string { color: #22863a; }
+        .number { color: #005cc5; }
+        .comment { color: #6a737d; font-style: italic; }
+        .operator { color: #d73a49; }
+        .type { color: #005cc5; font-weight: 500; }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .feature-section {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .feature-icon {
+                text-align: left;
+            }
+
+            .code-example {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="#" class="logo">Bern</a>
+            <nav>
+                <a href="#home">Home</a>
+                <a href="#learn">Learn</a>
+                <a href="#docs">Docs</a>
+                <a href="#download">Download</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <img src="images/logo.png" alt="Bern Logo" width="60%" />
+            <p class="subtitle">A functionally inspired language focused on <strong>expressiveness</strong>.</p>
+        </div>
+
+        <div class="feature-section">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-content">
+                <h2>Pattern Matching</h2>
+                <p>Define functions with multiple clauses that match on patterns, making your code clear and maintainable.</p>
+                <div class="code-example">
+                    <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6</div>
+                    <div class="code-content"><pre><code><span class="keyword">def</span> <span class="function">sign</span>(<span class="number">0</span>) <span class="operator">-></span> <span class="string">"zero"</span>
+<span class="keyword">def</span> <span class="function">sign</span>(n) <span class="operator">-></span> <span class="string">"positive"</span>
+
+<span class="keyword">def</span> <span class="function">greet</span>(<span class="string">"Alice"</span>) <span class="operator">-></span> <span class="string">"Hi, Alice!"</span>
+<span class="keyword">def</span> <span class="function">greet</span>(_) <span class="operator">-></span> <span class="string">"Hello, someone else!"</span></code></pre></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-section">
+            <div class="feature-icon">📦</div>
+            <div class="feature-content">
+                <h2>Algebraic Data Types</h2>
+                <p>Create custom types with multiple constructors for type-safe data modeling. ADTs combine naturally with pattern matching.</p>
+                <div class="code-example">
+                    <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9</div>
+                    <div class="code-content"><pre><code><span class="keyword">adt</span> <span class="type">Shape</span> = <span class="type">Circle</span> <span class="type">Double</span> | <span class="type">Rectangle</span> <span class="type">Double</span> <span class="type">Double</span>
+
+<span class="keyword">def</span> <span class="function">area</span>(<span class="type">Circle</span>(r)) <span class="operator">-></span> <span class="number">3.14159</span> <span class="operator">*</span> r <span class="operator">*</span> r
+<span class="keyword">def</span> <span class="function">area</span>(<span class="type">Rectangle</span>(w, h)) <span class="operator">-></span> w <span class="operator">*</span> h
+
+c = <span class="type">Circle</span>(<span class="number">5.0</span>)
+r = <span class="type">Rectangle</span>(<span class="number">3.0</span>, <span class="number">4.0</span>)
+
+<span class="function">area</span>(c)  <span class="comment">// Calculates circle area</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-section">
+            <div class="feature-icon">🔄</div>
+            <div class="feature-content">
+                <h2>Unified Loop Syntax</h2>
+                <p>Use the <code>for</code> keyword for all loop types, inspired by Odin. Clean syntax for repeating, conditional, and iteration loops.</p>
+                <div class="code-example">
+                    <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14</div>
+                    <div class="code-content"><pre><code><span class="comment">// Repeat loop</span>
+<span class="keyword">for</span> <span class="number">3</span> <span class="keyword">do</span>
+    <span class="string">"Hello!"</span>
+<span class="keyword">end</span>
+
+<span class="comment">// Conditional loop</span>
+<span class="keyword">for</span> counter <span class="operator">></span> <span class="number">0</span> <span class="keyword">do</span>
+    counter = counter <span class="operator">-</span> <span class="number">1</span>
+<span class="keyword">end</span>
+
+<span class="comment">// For-in loop</span>
+<span class="keyword">for</span> char <span class="operator">:</span> <span class="string">"Bern"</span> <span class="keyword">do</span>
+    char
+<span class="keyword">end</span></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="feature-section">
+            <div class="feature-icon">λ</div>
+            <div class="feature-content">
+                <h2>First-Class Functions</h2>
+                <p>Functions are values that can be passed around, returned, and composed. Lambda expressions make inline functions natural.</p>
+                <div class="code-example">
+                    <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8</div>
+                    <div class="code-content"><pre><code><span class="keyword">import</span> core
+
+<span class="comment">// Higher-order function usage</span>
+<span class="function">map</span>([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>], <span class="operator">\</span>x <span class="operator">-></span> x <span class="operator">*</span> <span class="number">2</span>)
+
+<span class="comment">// Lambda expressions</span>
+inc = <span class="operator">\</span>x <span class="operator">-></span> x <span class="operator">+</span> <span class="number">1</span>
+<span class="function">applyTwice</span>(<span class="operator">\</span>n <span class="operator">-></span> n <span class="operator">*</span> <span class="number">2</span>, <span class="number">5</span>)</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="also-featuring">
+            <h3>🌟 Also Featuring</h3>
+            <ul>
+                <li>Range syntax for lists: <code>[1..10]</code></li>
+                <li>Set operations with union, intersection, and difference</li>
+                <li>Object/hashmap support with <code>#{key: value}#</code> syntax</li>
+                <li>List and set operations: <code>&lt;&gt;</code>, <code>&lt;|</code>, <code>|&gt;</code>, <code>&lt;/&gt;</code></li>
+                <li>Length operator: <code>:&gt;</code></li>
+                <li>Type conversion functions in core library</li>
+                <li>Clean, expressive syntax inspired by Haskell and Odin</li>
+            </ul>
+        </div>
+
+        <div class="doc-section" id="docs">
+            <h2>Documentation</h2>
+            
+            <h3>Basics</h3>
+            <p>In Bern, literals are interpreted and printed automatically. Variables are defined with simple assignment.</p>
+            <div class="simple-code">integer = <span class="number">2</span>
+double = <span class="number">3.14</span>
+helloworld = <span class="string">"Hello, World!"</span></div>
+
+            <h3>Conditionals</h3>
+            <p>Use if-then-else statements and else-if chains for conditional logic.</p>
+            <div class="simple-code">age = <span class="number">18</span>
+<span class="keyword">if</span> age <span class="operator">>=</span> <span class="number">18</span> <span class="keyword">then</span>
+    <span class="string">"You are an adult."</span>
+<span class="keyword">else</span>
+    <span class="string">"You are a minor."</span>
+<span class="keyword">end</span></div>
+
+            <h3>Lists</h3>
+            <p>Lists are homogeneous collections with range syntax and various operations.</p>
+            <div class="simple-code">numbers = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]
+range = [<span class="number">5</span>..<span class="number">10</span>]
+
+[<span class="number">1</span>, <span class="number">2</span>] <span class="operator">+</span> <span class="number">2</span>              <span class="comment">// Maps: [3, 4]</span>
+[<span class="number">1</span>, <span class="number">2</span>] <span class="operator"><></span> [<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]     <span class="comment">// Concatenation</span>
+[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>] <span class="operator"><|</span> [<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]  <span class="comment">// Union (no duplicates)</span></div>
+
+            <h3>Sets</h3>
+            <p>Sets automatically handle uniqueness and support set theory operations.</p>
+            <div class="simple-code">{<span class="number">1</span>, <span class="number">2</span>} <span class="operator">+</span> <span class="number">3</span>           <span class="comment">// Add element</span>
+{<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>} <span class="operator">|></span> {<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>}  <span class="comment">// Intersection</span>
+{<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>} <span class="operator"></></span> {<span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>} <span class="comment">// Difference</span></div>
+
+            <h3>Objects (Hashmaps)</h3>
+            <p>Objects use <code>#{...}#</code> notation for key-value pairs.</p>
+            <div class="simple-code">obj = <span class="operator">#{</span>
+  key: <span class="string">"value"</span>,
+  hello: <span class="string">"world"</span>
+<span class="operator">}#</span>
+
+obj[<span class="string">"key"</span>] = <span class="string">"new_value"</span>
+obj[<span class="string">"new_key"</span>] = <span class="string">"added_value"</span></div>
+
+            <h3>Functions with Block Bodies</h3>
+            <p>Use <code>do...end</code> blocks with <code>return</code> for more complex functions.</p>
+            <div class="simple-code"><span class="keyword">def</span> <span class="function">sumList</span>(xs) <span class="keyword">do</span>
+    total = <span class="number">0</span>
+    <span class="keyword">for</span> n <span class="operator">:</span> xs <span class="keyword">do</span>
+        total = total <span class="operator">+</span> n
+    <span class="keyword">end</span>
+    <span class="keyword">return</span> total
+<span class="keyword">end</span>
+
+<span class="function">sumList</span>([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>])  <span class="comment">// Returns 10</span></div>
+
+            <h3>Imports</h3>
+            <p>Extend functionality by importing libraries like <code>core</code>.</p>
+            <div class="simple-code"><span class="keyword">import</span> core
+
+<span class="function">map</span>([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>], <span class="operator">\</span>x <span class="operator">-></span> x <span class="operator">+</span> <span class="number">2</span>)
+
+<span class="keyword">def</span> <span class="function">isEven</span>(x) <span class="operator">-></span> x <span class="operator">%</span> <span class="number">2</span> <span class="operator">==</span> <span class="number">0</span>
+<span class="function">filter</span>([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>], isEven)</div>
+
+            <h3>User Input</h3>
+            <p>Capture user input with the <code>input()</code> function.</p>
+            <div class="simple-code">name = <span class="function">input</span>(<span class="string">"Type your name: "</span>)
+
+<span class="keyword">import</span> core
+age_text = <span class="function">input</span>(<span class="string">"Type your age: "</span>)
+age = <span class="function">to_int</span>(age_text)</div>
+        </div>
+
+        <footer>
+            Copyright © 2026 • All rights reserved • Built with ❤️ by <a href="https://mirvox.xyz/">Miguel Aguiar</a>
+        </footer>
+    </div>
+</body>
+</html>
