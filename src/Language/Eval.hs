@@ -24,6 +24,21 @@ interpretCommand (Input varName promptExpr) table = do
     let newTable = insertHashtable table varName (List (map Character input) (length input))
     return newTable
 
+interpretCommand (WriteFile filePath contentExpr) table = do
+    pathVal <- case evaluate filePath table of
+                    Right v -> case valueToString v of
+                                  Just s  -> return s
+                                  Nothing -> die "File path must be a string"
+                    Left err -> die err
+    contentVal <- case evaluate contentExpr table of
+                    Right v -> case valueToString v of
+                                  Just s  -> return s
+                                  Nothing -> die "Content must be a string"
+                    Left err -> die err
+    writeFile pathVal contentVal
+    return table
+    
+
 interpretCommand (Print expr) table =
     case evaluate expr table of
         Right Undefined -> return table
@@ -41,6 +56,7 @@ interpretCommand (Assign name expr) table =
         Right v@(Object _)    -> return (insertHashtable table name v)
         Right v@(Function _)  -> return (insertHashtable table name v)
         Right v@(Lambda _)    -> return (insertHashtable table name v)
+        Right v@(AlgebraicDataType _ _) -> return (insertHashtable table name v)
         Right _               -> die "Unexpected value in assignment"
         Left err              -> die err
 
@@ -51,6 +67,10 @@ interpretCommand (AssignIndex name idxExprs expr) table = do
     idxVals <- mapM (\ie -> case evaluate ie table of
                               Right (Integer n)      -> return (IdxInt n)
                               Right (Character c)    -> return (IdxKey [c])
+                              Right l@(List _ _)     ->
+                                  case valueToString l of
+                                    Just s  -> return (IdxKey s)
+                                    Nothing -> die "Index must be integer or string (in case of objects)"
                               Right _                -> die "Index must be integer or string (in case of objects)"
                               Left err               -> die err) idxExprs
     newVal <- case evaluate expr table of
@@ -136,6 +156,13 @@ interpretCommand (Return expr) table =
         Right v -> return (insertHashtable table "__return" v)
         Left err -> die err
 
+interpretCommand (AlgebraicTypeDef (ADTDef typeName constructors)) table = do
+    let adtVal = AlgebraicDataType typeName []
+    let newTable = insertHashtable table typeName adtVal
+    let tableWithCtors = foldl (\tbl (ADTConstructor ctorName _) ->
+                                  insertHashtable tbl ctorName (Function [])) newTable constructors
+    return tableWithCtors
+
 interpretCommand (Import moduleName) table = do
     -- Try lib/<name>.brn first, then <name>.brn
     let libPath = "lib/" ++ moduleName ++ ".brn"
@@ -192,6 +219,9 @@ matchOne (PInt n) (Integer m) | n == m = Just []
 matchOne (PDouble x) (Double y) | x == y = Just []
 matchOne (PBool b) (Boolean c) | b == c = Just []
 matchOne (PChar c) (Character d) | c == d = Just []
+matchOne (PADT typeName pats) (AlgebraicDataType valType vals)
+    | typeName == valType && length pats == length vals = matchAll pats vals
+    | otherwise = Nothing
 matchOne (PString s) (List vs _) | allCharacter vs && map (
     \(Character c) -> c) vs == s = Just []
 
@@ -244,11 +274,6 @@ valueToString _ = Nothing
 
 -- Our 'evaluate' function receives an Expression and a Hashtable (for variables)
 evaluate :: Expression -> Hashtable String Value -> Either String Value
--- Carry source position for better error reporting
-evaluate (WithPos pos expr) table =
-    case evaluate expr table of
-        Left err -> Left (sourcePosPretty pos ++ ": " ++ err)
-        Right v  -> Right v
 -- If a Number is received, then it is itself.
 evaluate (Number n) _ = (Right (Integer n))
 
@@ -334,6 +359,25 @@ evaluate (Variable name) table =
         -- Otherwise, this variable was not defined.
         Nothing  -> Right Undefined
 
+-- Read a file (not a command but an expression)
+evaluate (ReadFile filenameExpr) table = do
+    pathVal <- evaluate filenameExpr table
+    case valueToString pathVal of
+        Just path -> do
+            let contents = unsafePerformIO (readFile path)
+            return (List (map Character contents) (length contents))
+        Nothing -> Left "File path must be a string"
+
+-- Carry source position for better error reporting
+evaluate (WithPos pos expr) table =
+    case evaluate expr table of
+        Left err -> Left (sourcePosPretty pos ++ ": " ++ err)
+        Right v  -> Right v
+
+evaluate (AlgebraicDataTypeConstruct typeName args) table = do
+    argVals <- mapM (`evaluate` table) args
+    Right (AlgebraicDataType typeName argVals)
+
 -- If a Binary Operation is received, then
 evaluate (BinaryOperator op left right) table = do
     -- Evaluate Left and Right until atom value
@@ -361,12 +405,15 @@ evaluate (ObjectLiteral kvExprs) table = do
 evaluate (LambdaExpr params bodyExpr) _table =
     Right (Lambda [Clause params (BodyExpr bodyExpr)])
 
-evaluate (FunctionCall name args) table = do
-    callee <- case lookupHashtable table name of
-                Just v -> Right v
-                Nothing -> Left "Function not found"
-    argVals <- mapM (`evaluate` table) args
-    applyFunction callee argVals table
+evaluate (FunctionCall name args) table =
+    case lookupHashtable table name of
+        Just (Function []) -> do
+            argVals <- mapM (`evaluate` table) args
+            Right $ AlgebraicDataType name argVals
+        Just v -> do
+            argVals <- mapM (`evaluate` table) args
+            applyFunction v argVals table
+        Nothing -> Left "Function not found"
 
 evaluate _ _ = Left "Unsupported Expression"
 
@@ -444,6 +491,16 @@ evalArith Add (List l1 len1) (List l2 len2) =
     isRight _        = False
     fromRight (Right v) = v
     fromRight _         = error "Unexpected Left value"
+
+-- Concatenation of List (String) with ADT (converted to string)
+evalArith Add l@(List _ _) r@(AlgebraicDataType name vals)
+    | Just s <- valueToString l
+    = let sADT = prettyValue r
+      in Right (List (map Character (s ++ sADT)) (length s + length sADT))
+evalArith Add l@(AlgebraicDataType name vals) r@(List _ _)
+    | Just s <- valueToString r
+    = let sADT = prettyValue l
+      in Right (List (map Character (sADT ++ s)) (length sADT + length s))
 
 evalArith Add (Set s1 len1) v =
     if v `elem` s1

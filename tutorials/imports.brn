@@ -1,17 +1,23 @@
+"_____________________________________________________________"
+"Bern allows for importing libraries to extend its functionality."
+"You can import standard libraries or user-defined modules using" 
+"the \'import\' keyword:"
+"_____________________________________________________________\n"
+"import core"
 import core
 
--- Define a simple function
-def addTwo(x) -> x + 2
+"\nWith the core library imported, you can now use its functions."
+"Here are some examples of using functions from the core library:\n"
+"map([1,2,3,4,5], \\x -> x + 2)"
 
+"Result:"
 -- Use map from core library
-map([1,2,3,4,5], addTwo)
+map([1,2,3,4,5], \x -> x + 2)
 
+"\ndef isEven(x) -> x % 2 == 0"
+"filter([1,2,3,4,5,6,7,8,9,10], isEven)"
+
+"Result:"
 -- Use filter
 def isEven(x) -> x % 2 == 0
 filter([1,2,3,4,5,6,7,8,9,10], isEven)
-
--- Use sum
-sum([1,2,3,4,5])
-
--- Use range
-range(1, 10)

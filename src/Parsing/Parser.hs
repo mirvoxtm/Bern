@@ -205,6 +205,7 @@ parseBaseTerm = try parseObject
     <|> try parseBoolean
     <|> try parseList
     <|> try parseSet
+    <|> try parseReadFile
     <|> try parseFunctionCallOrVar
     <|> parseParens
 
@@ -243,6 +244,7 @@ parsePatterns = parsePattern `sepBy` symbol ","
 parsePattern :: Parser Pattern
 parsePattern = lexeme $ choice
     [ string "_" >> return PWildcard
+    , try parseADTConstructorPattern
     , try parseListPattern  -- [head|tail] or [] or [a, b, c]
     , try parseSetPattern   -- {head|tail} or {} or {a, b, c}
     , try $ PInt <$> L.decimal
@@ -255,6 +257,17 @@ parsePattern = lexeme $ choice
          rest <- many (alphaNumChar <|> char '_')
          return (PVar (firstChar:rest))
     ]
+
+parseADTConstructorPattern :: Parser Pattern
+parseADTConstructorPattern = do
+    ctorName <- lexeme $ do
+        first <- upperChar
+        rest <- many (alphaNumChar <|> char '_')
+        return (first:rest)
+    args <- optional $ between (symbolNoNl "(") (symbolNoNl ")") (parsePatterns)
+    case args of
+        Just ps -> return $ PADT ctorName ps
+        Nothing -> return $ PADT ctorName []
 
 -- Parse list patterns: [], [head|tail], [a, b, c]
 parseListPattern :: Parser Pattern
@@ -413,6 +426,56 @@ parseElseChain = try parseElseIf <|> parseElseOnly <|> parseNoElse
         _ <- symbol "end"
         return Skip
 
+parseWriteFile :: Parser Command
+parseWriteFile = do
+    _ <- symbol "writefile"
+    filenameExpr <- parseExpression
+    contentExpr <- parseExpression
+    return $ WriteFile filenameExpr contentExpr
+
+
+parseReadFile :: Parser Expression
+parseReadFile = do
+    _ <- try (symbol "read_file")
+    _ <- symbolNoNl "("
+    filenameExpr <- parseExpression
+    _ <- symbolNoNl ")"
+    return $ ReadFile filenameExpr
+
+
+parseAlgebraicDataType :: Parser Command
+parseAlgebraicDataType = do
+    _ <- symbol "adt"
+    typeName <- lexeme $ do
+        firstChar <- letterChar <|> char '_'
+        rest <- many (alphaNumChar <|> char '_')
+        return (firstChar : rest)
+    _ <- symbol "="
+    constructors <- parseConstructor `sepBy1` symbol "|"
+    return $ AlgebraicTypeDef (ADTDef typeName constructors)
+  where
+    parseConstructor = do
+        consName <- lexeme $ do
+            firstChar <- letterChar <|> char '_'
+            rest <- many (alphaNumChar <|> char '_')
+            return (firstChar : rest)
+        argTypes <- many parseType
+        return $ ADTConstructor consName argTypes
+
+    parseType = lexeme $ choice
+        [ string "Int"    >> return TInt
+        , string "Double" >> return TDouble
+        , string "Bool"   >> return TBool
+        , string "Char"   >> return TChar
+        , string "String" >> return TString
+        , string "List"   >> return TList
+        , string "Set"    >> return TSet
+        , do
+            first <- letterChar <|> char '_'
+            rest <- many (alphaNumChar <|> char '_')
+            return (TCustom (first:rest))
+        ]
+
 parseRepeat :: Parser Command
 parseRepeat = do
     _ <- symbol "for"
@@ -463,6 +526,7 @@ parseSingleCommand = try parseAssignment
                <|> try parseForIn
                <|> try parseRepeat
                <|> try parseWhile
+               <|> try parseAlgebraicDataType
                <|> (Print <$> parseExpression)
 
 parseImport :: Parser Command

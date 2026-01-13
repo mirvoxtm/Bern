@@ -20,10 +20,24 @@ main = do
   args <- getArgs
   case args of
     [filename] -> runFile filename
-    []         -> do
-      putStrLn "| Welcome to Bern."
+    []         -> do 
+      printWelcome
+      putStrLn ""
       repl initialTable
     _ -> putStrLn "Usage: bern [filename.brn]"
+
+printWelcome :: IO ()
+printWelcome = do
+  let purple = "\x1b[35m"
+  let reset  = "\x1b[0m"
+
+  putStrLn (purple ++ "______                  " ++ reset)
+  putStrLn (purple ++ "| ___ \\                      The Bern Language Interpreter " ++ reset)
+  putStrLn (purple ++ "| |_/ / ___ _ __ _ __       " ++ reset)
+  putStrLn (purple ++ "| ___ \\/ _ \\ '__| '_ \\     Use \"bern <file>\" to run a program." ++ reset)
+  putStrLn (purple ++ "| |_/ /  __/ |  | | | |      Use \"bern help\" for a tutorial." ++ reset)
+  putStrLn (purple ++ "\\____/ \\___|_|  |_| |_|         [ v.1.0.1 12.01.2025 ]" ++ reset)
+
 
 -- Run a file
 runFile :: FilePath -> IO ()
@@ -37,7 +51,9 @@ runFile path = do
 
 repl :: Hashtable String Value -> IO ()
 repl table = do
-  putStr "bern>"
+  let purple = "\x1b[35m"
+      reset  = "\x1b[0m"
+  putStr (purple ++ "[bern]: " ++ reset)
   hFlush stdout
   line <- getLine
   -- Skip empty lines

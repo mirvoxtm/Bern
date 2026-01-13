@@ -34,7 +34,17 @@ data UnaryOperation = Negate   -- Negates Numbers (-)
                     | SizeOf   -- :> expr
                     deriving (Show, Eq)
 
+data AlgebraicDataTypeDef = ADTDef String [ADTConstructor]
+    deriving (Show, Eq)
+
+data ADTConstructor = ADTConstructor String [Type]
+    deriving (Show, Eq)
+
+data Type = TInt | TDouble | TBool | TChar | TString | TList | TSet | TCustom String
+    deriving (Show, Eq)
+
 data Expression = Number Int
+                | AlgebraicDataTypeConstruct String [Expression] -- ADT Name and its values
                 | DoubleNum Double
                 | BoolLiteral Bool -- true/false
                 | StringLiteral String -- "string"
@@ -50,11 +60,13 @@ data Expression = Number Int
                 | FunctionCall String [Expression]
                 | LambdaExpr [Pattern] Expression
                 | WithPos SourcePos Expression        -- carries source position for better errors
+                | ReadFile Expression                 -- readfile filename
                 deriving (Show, Eq)
 
 -- Patterns for function parameters (used by defs and lambdas)
 data Pattern = PVar String
             | PInt Int
+            | PADT String [Pattern]      -- ADT pattern matching
             | PDouble Double
             | PBool Bool
             | PChar Char
@@ -104,4 +116,6 @@ data Command = Skip
                 | Return Expression                           -- return expr
                 | Import String                               -- import module
                 | Input String Expression                     -- input var prompt
+                | WriteFile Expression Expression             -- writefile filename expr
+                | AlgebraicTypeDef AlgebraicDataTypeDef
                 deriving (Show, Eq)

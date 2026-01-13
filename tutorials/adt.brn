@@ -1,0 +1,65 @@
+"_____________________________________________________________"
+"Bern has support for Algebraic Data Types (ADTs)."
+"Similar to other functional programming languages, ADTs allow"
+"you to define custom data types with multiple constructors.\n"
+"_____________________________________________________________\n"
+"[1. Defining ADTs]"
+"To define an ADT in Bern, you use the 'adt' keyword followed"
+"by the type name and its constructors. Each constructor can"
+"have zero or more fields.\n"
+"For example, let's define a Shape type that can be a Circle or Rectangle:\n"
+
+"adt Shape = Circle Double | Rectangle Double Double"
+"\n"
+adt Shape = Circle Double | Rectangle Double Double
+"_____________________________________________________________\n"
+
+"[2. Using ADTs]"
+"Once you've defined an ADT, you can create instances of it"
+"by calling its constructors like functions.\n"
+"For example, to create a Circle of radius 5:\n"
+c = Circle(5.0)
+"\n"
+"And to create a Rectangle of width 3 and height 4:\n"
+r = Rectangle(3.0, 4.0)
+"\n"
+
+"_____________________________________________________________\n"
+
+"[3. Pattern Matching]"
+"Pattern matching allows you to destructure ADTs and access their fields easily."
+"For example, to compute the area of a Shape:"
+"def area(Circle(r)) -> 3.14159 * r * r"
+"def area(Rectangle(w, h)) -> w * h"
+
+"Result:\n"
+def area(Circle(r)) -> 3.14159 * r * r
+def area(Rectangle(w, h)) -> w * h
+
+"area(c): " + area(c)
+"area(r): " + area(r)
+"\n"
+
+"_____________________________________________________________\n"
+"[4. Maybe Example]\n"
+"The Maybe Type (or Monad) is a common ADT used to represent optional values."
+"It can either be 'Just(value)' indicating presence of a value,"
+"or 'None()' indicating absence of a value.\n"
+"Let's define the Maybe type as:\n"
+"adt Maybe = Just Int | None\n\n"
+
+adt Maybe = Just Int | None
+
+"With this datatype implemented, we can now use it to verify"
+"safely the presence of a value keeping it's purity.\n\n"
+
+"Take the following example:\n"
+def safeDivide(n, 0) -> None()
+def safeDivide(n, m) -> Just(n / m)
+
+"Result:\n"
+safe1 = safeDivide(10, 3)
+safe2 = safeDivide(5, 0)
+
+"safeDivide(10, 3): " + safe1
+"safeDivide(5, 0): " + safe2
