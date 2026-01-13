@@ -42,3 +42,7 @@ allCharacter (x:xs) = case x of
   where
     isCharacter (Character _) = True
     isCharacter _             = False
+
+valueToString :: Value -> Maybe String
+valueToString (List vals _) | allCharacter vals = Just (map (\(Character c) -> c) vals)
+valueToString _ = Nothing

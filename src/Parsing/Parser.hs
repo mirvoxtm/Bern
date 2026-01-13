@@ -206,8 +206,48 @@ parseBaseTerm = try parseObject
     <|> try parseList
     <|> try parseSet
     <|> try parseReadFile
+    <|> try parseFmap
     <|> try parseFunctionCallOrVar
     <|> parseParens
+
+parseCBinding ::  Parser Command
+parseCBinding = do
+    _ <- symbol "foreign"
+    
+    -- Parse the function name
+    funcName <- lexeme $ do
+        first <- letterChar <|> char '_'
+        rest <- many (alphaNumChar <|> char '_')
+        return (first :  rest)
+    
+    -- Parse the library path (the . so/. dll file)
+    _ <- symbolNoNl "("
+    libPath <- parseStringLiteral
+    _ <- symbolNoNl ","
+    
+    -- Parse the list of argument types ("int", "double", ...)
+    argTypes <- parseTypeString `sepBy` symbolNoNl ","
+    _ <- symbolNoNl ")"
+
+    -- Arrow indicating return type
+    _ <- symbolNoNl "->"
+    retType <- parseTypeString
+    
+    -- Return a command that loads the C function
+    return $ CForeignDecl funcName libPath argTypes retType
+  where
+    parseStringLiteral ::  Parser String
+    parseStringLiteral = lexeme $ do
+        _ <- char '"'
+        content <- manyTill L.charLiteral (char '"')
+        return content
+    
+    parseTypeString :: Parser String
+    parseTypeString = lexeme $ do
+        _ <- char '"'
+        typeStr <- some (letterChar <|> char '_')
+        _ <- char '"'
+        return typeStr
 
 -- Parse a variable or a function call (name(args...))
 parseFunctionCallOrVar :: Parser Expression
@@ -442,6 +482,17 @@ parseReadFile = do
     _ <- symbolNoNl ")"
     return $ ReadFile filenameExpr
 
+parseFmap :: Parser Expression
+parseFmap = do
+    _ <- try (symbol "fmap")
+    _ <- symbolNoNl "("
+    collectionExpr <- parseExpression
+    _ <- symbolNoNl ","
+    functionExpr <- parseExpression
+    _ <- symbolNoNl ")"
+    return $ Fmap collectionExpr functionExpr
+
+
 
 parseAlgebraicDataType :: Parser Command
 parseAlgebraicDataType = do
@@ -527,6 +578,7 @@ parseSingleCommand = try parseAssignment
                <|> try parseRepeat
                <|> try parseWhile
                <|> try parseAlgebraicDataType
+               <|> try parseCBinding
                <|> (Print <$> parseExpression)
 
 parseImport :: Parser Command

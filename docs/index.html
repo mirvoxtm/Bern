@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bern - Documentation</title>
+    <title>Bern Programming Language | Functional, Expressive, Modern</title>
+    <link rel="icon" type="image/png" href="images/cat.png">
+    <meta name="description" content="Bern is a modern, functionally inspired programming language focused on expressiveness, pattern matching, algebraic data types, and clean syntax. Learn, explore, and download Bern.">
+    <meta name="keywords" content="Bern, Bern language, functional programming, pattern matching, algebraic data types, modern programming, expressive syntax, Odin, Haskell, language tutorial, language documentation, download Bern">
+    <link rel="canonical" href="https://mirvoxtm.github.io/Bern">
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mirvoxtm.github.io/Bern">
+    <meta property="og:title" content="Bern Programming Language | Functional, Expressive, Modern">
+    <meta property="og:description" content="Bern is a modern, functionally inspired programming language focused on expressiveness, pattern matching, algebraic data types, and clean syntax. Learn, explore, and download Bern.">
+    <meta property="og:image" content="https://mirvoxtm.github.io/Bern">
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://mirvoxtm.github.io/Bern">
+    <meta name="twitter:title" content="Bern Programming Language | Functional, Expressive, Modern">
+    <meta name="twitter:description" content="Bern is a modern, functionally inspired programming language focused on expressiveness, pattern matching, algebraic data types, and clean syntax. Learn, explore, and download Bern.">
+    <meta name="twitter:image" content="https://mirvoxtm.github.io/Bern/images/logo.png">
     <style>
         * {
             margin: 0;
@@ -33,7 +49,6 @@
 
         header {
             background: white;
-            border-bottom: 1px solid var(--border);
             padding: 1rem 0;
         }
 
@@ -134,11 +149,11 @@
 
         .line-numbers {
             background: #eee;
-            padding: 1rem 0.5rem;
+            padding: 1.1rem 0.5rem;
             text-align: right;
             color: #999;
             font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             user-select: none;
             border-right: 1px solid var(--border);
         }
@@ -290,7 +305,7 @@
 <body>
     <header>
         <div class="header-content">
-            <a href="#" class="logo">Bern</a>
+            <a href="#" class="logo"><img src="images/cat.png" alt="Bern Logo" width="20%" style="margin-top: 10px;"></a>
             <nav>
                 <a href="#home">Home</a>
                 <a href="#learn">Learn</a>
@@ -304,6 +319,8 @@
         <div class="hero">
             <img src="images/logo.png" alt="Bern Logo" width="60%" />
             <p class="subtitle">A functionally inspired language focused on <strong>expressiveness</strong>.</p>
+            <pre style="background-color: rgb(232, 239, 241); border-radius: 10px; font-family: monospace; padding: 1rem; font-size: 18px; color: grey;">iex (irm https://mirvoxtm.github.io/Bern/install/install_bern.ps1)</pre>
+            <p class="subtitle" style="font-size: 14px; margin-top: 14px;">Install with <b>PowerShell</b> using the command above.<br>Alternatively, install with <b>Bash</b> using <code>curl -fsSL https://mirvoxtm.github.io/Bern/install/install_bern.sh | bash</code></p>
         </div>
 
         <div class="feature-section">
@@ -312,7 +329,7 @@
                 <h2>Pattern Matching</h2>
                 <p>Define functions with multiple clauses that match on patterns, making your code clear and maintainable.</p>
                 <div class="code-example">
-                    <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6</div>
+                    <div class="line-numbers">1<br>2<br>3<br>4<br>5</div>
                     <div class="code-content"><pre><code><span class="keyword">def</span> <span class="function">sign</span>(<span class="number">0</span>) <span class="operator">-></span> <span class="string">"zero"</span>
 <span class="keyword">def</span> <span class="function">sign</span>(n) <span class="operator">-></span> <span class="string">"positive"</span>
 

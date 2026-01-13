@@ -1,0 +1,14 @@
+foreign strlen("msvcrt.dll", "string") -> "int"
+foreign add("msvcrt.dll", "int", "int") -> "int"
+
+def main() do
+    texto = "Olá, Mundo!"
+    tam = strlen(texto)
+    
+    tam
+
+    soma = add(10, 20)
+    soma
+end
+
+main()

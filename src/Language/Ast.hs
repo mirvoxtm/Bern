@@ -3,7 +3,7 @@ module Language.Ast where
 import Text.Megaparsec (SourcePos)
 
 {-
-This is the Abstract Syntax Tree for the Neru Language.
+This is the Abstract Syntax Tree for the Bern Language.
 It defines operations, expressions and types.
 -}
 
@@ -61,6 +61,7 @@ data Expression = Number Int
                 | LambdaExpr [Pattern] Expression
                 | WithPos SourcePos Expression        -- carries source position for better errors
                 | ReadFile Expression                 -- readfile filename
+                | Fmap Expression Expression          -- fmap collection function
                 deriving (Show, Eq)
 
 -- Patterns for function parameters (used by defs and lambdas)
@@ -95,8 +96,45 @@ data Value = Integer Int
             | Character Char
             | Function [Clause]
             | Lambda [Clause]
+            | CBinding String ([Value] -> IO Value)  -- A C function binding (runtime value)
             | AlgebraicDataType String [Value] -- An Algebraic Data Type (ADT) with its name and values
-            deriving (Show, Eq)
+
+-- IMPORTANTE: Não podemos derivar Show e Eq automaticamente porque
+-- ([Value] -> IO Value) não tem instâncias de Show e Eq
+-- Você precisará implementar manualmente:
+
+instance Show Value where
+    show (Integer n) = "Integer " ++ show n
+    show (Double d) = "Double " ++ show d
+    show NaN = "NaN"
+    show Undefined = "Undefined"
+    show (Boolean b) = "Boolean " ++ show b
+    show (Set vs l) = "Set " ++ show vs ++ " " ++ show l
+    show (List vs l) = "List " ++ show vs ++ " " ++ show l
+    show (Object kvs) = "Object " ++ show kvs
+    show (TextLiteral s l) = "TextLiteral " ++ show s ++ " " ++ show l
+    show (Character c) = "Character " ++ show c
+    show (Function cs) = "Function " ++ show cs
+    show (Lambda cs) = "Lambda " ++ show cs
+    show (CBinding name _) = "CBinding " ++ show name ++ " <function>"  -- Não podemos mostrar a função
+    show (AlgebraicDataType name vs) = "AlgebraicDataType " ++ show name ++ " " ++ show vs
+
+instance Eq Value where
+    (Integer a) == (Integer b) = a == b
+    (Double a) == (Double b) = a == b
+    NaN == NaN = True
+    Undefined == Undefined = True
+    (Boolean a) == (Boolean b) = a == b
+    (Set a la) == (Set b lb) = a == b && la == lb
+    (List a la) == (List b lb) = a == b && la == lb
+    (Object a) == (Object b) = a == b
+    (TextLiteral a la) == (TextLiteral b lb) = a == b && la == lb
+    (Character a) == (Character b) = a == b
+    (Function a) == (Function b) = a == b
+    (Lambda a) == (Lambda b) = a == b
+    (CBinding na _) == (CBinding nb _) = na == nb  -- Comparamos apenas pelo nome
+    (AlgebraicDataType na va) == (AlgebraicDataType nb vb) = na == nb && va == vb
+    _ == _ = False
 
 -- One function can have multiple pattern-matching clauses.
 data Clause = Clause [Pattern] FunctionBody
@@ -118,4 +156,5 @@ data Command = Skip
                 | Input String Expression                     -- input var prompt
                 | WriteFile Expression Expression             -- writefile filename expr
                 | AlgebraicTypeDef AlgebraicDataTypeDef
+                | CForeignDecl String String [String] String -- foreign funcName (argTypes) -> retType
                 deriving (Show, Eq)

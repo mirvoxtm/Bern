@@ -4,11 +4,14 @@ import System.IO.Unsafe (unsafePerformIO)
 import System.Directory (doesFileExist)
 import Data.Maybe (isJust)
 import Debug.Trace (trace)
+import System.Environment (getExecutablePath)
+import System.FilePath (takeDirectory, (</>))
 import Language.Ast
 import Data.Hashtable.Hashtable
 import Language.Helpers
 import Parsing.Parser (parseBernFile)
 import Text.Megaparsec (errorBundlePretty, sourcePosPretty)
+import qualified Language.FFI as FFI
 
 interpretCommand :: Command -> Hashtable String Value -> IO (Hashtable String Value)
 interpretCommand Skip table = return table
@@ -164,14 +167,33 @@ interpretCommand (AlgebraicTypeDef (ADTDef typeName constructors)) table = do
     return tableWithCtors
 
 interpretCommand (Import moduleName) table = do
-    -- Try lib/<name>.brn first, then <name>.brn
-    let libPath = "lib/" ++ moduleName ++ ".brn"
+    -- Get the executable path to find the installation directory
+    execPath <- getExecutablePath
+    let installDir = takeDirectory execPath
+    let installLibPath = installDir </> "lib" </> moduleName ++ ".brn"
+    
+    -- Try these paths in order:
+    -- 1. lib/<name>.brn (relative to cwd)
+    -- 2. <name>.brn (relative to cwd)
+    -- 3. <install-dir>/lib/<name>.brn (installation directory)
+    let localLibPath = "lib" </> moduleName ++ ".brn"
     let localPath = moduleName ++ ".brn"
-    libExists <- doesFileExist libPath
-    let path = if libExists then libPath else localPath
-    fileExists <- doesFileExist path
-    if not fileExists
-        then die ("Module not found: " ++ moduleName)
+    
+    -- Check each path in order
+    localLibExists <- doesFileExist localLibPath
+    localExists <- doesFileExist localPath
+    installLibExists <- doesFileExist installLibPath
+    
+    let path = if localLibExists 
+               then localLibPath
+               else if installLibExists
+                    then installLibPath
+                    else if localExists
+                         then localPath
+                         else ""
+    
+    if null path
+        then die ("Module not found: " ++ moduleName ++ " (searched in ./lib/, ./, and " ++ installDir </> "lib/)")
         else do
             contents <- readFile path
             case parseBernFile path contents of
@@ -184,6 +206,25 @@ interpretCommand (Concat cmd1 cmd2) table = do
         then return table'
         else interpretCommand cmd2 table'
 
+interpretCommand (CForeignDecl name libPath argTypes retType) table = do    
+    -- Try to load the function from available libraries
+    result <- tryLoadFromLibs [libPath] name argTypes retType
+    
+    case result of
+        Left err -> die $ "Failed to bind C function " ++ name ++ ": " ++ err
+        Right wrapper -> do
+            -- Store the C binding as a special function value
+            return $ insertHashtable table name (CBinding name wrapper)
+    
+tryLoadFromLibs :: [String] -> String -> [String] -> String -> IO (Either String ([Value] -> IO Value))
+tryLoadFromLibs [] funcName _ _ = 
+    return $ Left $ "Could not find function " ++ funcName ++ " in any library"
+tryLoadFromLibs (libPath:rest) funcName argTypes retType = do
+    result <- FFI.loadCFunction libPath funcName argTypes retType
+    case result of
+        Right wrapper -> return $ Right wrapper
+        Left _ -> tryLoadFromLibs rest funcName argTypes retType
+        
 -- Apply a function or lambda value to arguments
 applyFunction :: Value -> [Value] -> Hashtable String Value -> Either String Value
 applyFunction (Function clauses) args table = applyClauses clauses args table
@@ -267,11 +308,6 @@ toIterable (Set vals _)  = Right vals
 toIterable v@(List _ _) | Just s <- valueToString v = Right (map Character s)
 toIterable _             = Left "Cannot iterate over this type"
 
--- Check if value is a list of characters and return the string
-valueToString :: Value -> Maybe String
-valueToString (List vals _) | allCharacter vals = Just (map (\(Character c) -> c) vals)
-valueToString _ = Nothing
-
 -- Our 'evaluate' function receives an Expression and a Hashtable (for variables)
 evaluate :: Expression -> Hashtable String Value -> Either String Value
 -- If a Number is received, then it is itself.
@@ -327,6 +363,22 @@ evaluate (Range start end) table = do
             in Right (List vals (length vals))
         _ -> Left "Type error: range bounds must be numeric"
 
+-- Fmap expression: fmap collection function
+evaluate (Fmap coll func) table = do
+    collection <- evaluate coll table
+    functionVal <- evaluate func table
+    case collection of
+        AlgebraicDataType typeName args -> do
+            newArgs <- mapM (\arg -> applyFunction functionVal [arg] table) args
+            Right (AlgebraicDataType typeName newArgs)
+        List vals len -> do
+            newVals <- mapM (\v -> applyFunction functionVal [v] table) vals
+            Right (List newVals len)
+        Set vals len -> do
+            newVals <- mapM (\v -> applyFunction functionVal [v] table) vals
+            Right (Set newVals len)
+        _ -> Left "fmap() function can only be applied to ADTs, lists, or sets"
+ 
 -- Index access: list[i], string[i], set[i], object["key"]
 evaluate (Index expr idxExpr) table = do
     collection <- evaluate expr table
@@ -404,15 +456,23 @@ evaluate (ObjectLiteral kvExprs) table = do
 
 evaluate (LambdaExpr params bodyExpr) _table =
     Right (Lambda [Clause params (BodyExpr bodyExpr)])
-
+    
 evaluate (FunctionCall name args) table =
     case lookupHashtable table name of
-        Just (Function []) -> do
-            argVals <- mapM (`evaluate` table) args
-            Right $ AlgebraicDataType name argVals
-        Just v -> do
-            argVals <- mapM (`evaluate` table) args
-            applyFunction v argVals table
+        Just (Function []) -> 
+            case sequence (map (`evaluate` table) args) of
+                Left err -> Left err
+                Right vals -> Right $ AlgebraicDataType name vals
+        Just (CBinding _ wrapper) -> 
+            case sequence (map (`evaluate` table) args) of
+                Left err -> Left err
+                Right vals -> 
+                    let result = unsafePerformIO (wrapper vals)
+                    in Right result
+        Just v -> 
+            case sequence (map (`evaluate` table) args) of
+                Left err -> Left err
+                Right vals -> applyFunction v vals table
         Nothing -> Left "Function not found"
 
 evaluate _ _ = Left "Unsupported Expression"
