@@ -1,0 +1,39 @@
+import core
+import strings
+
+def read_csv(file_name) do
+    content = read_file(file_name)
+    lines = split(content, "\n")
+    obj = #{}#
+    idx = 0
+    for line in lines do
+        fields = split(line, ",")
+        obj["" + idx] = fields
+        idx = idx + 1
+    end
+    return transform_csv(obj)
+end
+
+def transform_csv(raw_data) do
+    headers = raw_data["0"]
+    result = #{}#
+    idx = 1
+    
+    for idx < (:> raw_data) do
+        row = raw_data["" + idx]
+        row_obj = #{}#
+        field_idx = 0
+        
+        for field_idx < (:> headers) do
+            row_obj[headers[field_idx]] = row[field_idx]
+            field_idx = field_idx + 1
+        end
+        
+        result["" + (idx - 1)] = row_obj
+        idx = idx + 1
+    end
+    
+    return result
+end
+
+-- TODO: write_csv -- #{}# -> file

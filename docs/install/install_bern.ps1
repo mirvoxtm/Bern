@@ -7,7 +7,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$installDir = "C:\Beraan"
+$installDir = "C:\Bern"
 $repo = "mirvoxtm/Bern"
  $zipName = "Bern_win_1.0.1.zip"
  $exeName = "Bern.exe"

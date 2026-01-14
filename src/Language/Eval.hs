@@ -409,6 +409,11 @@ evaluate (Index expr idxExpr) table = do
                                 Just v  -> Right v
                                 Nothing -> Left ("Key not found: " ++ key)
                 Nothing -> Left "Index must be integer or string (in case of objects)"
+        (Object kvs, Integer i) ->
+            let key = show i in
+            case lookup key kvs of
+                Just v  -> Right v
+                Nothing -> Left ("Key not found: " ++ key)
         (Object kvs, Character c) ->
             case lookup [c] kvs of
                 Just v  -> Right v
@@ -911,6 +916,7 @@ evalUnaryOp SizeOf v
     | Just s <- valueToString v = Right (Integer (length s))
 evalUnaryOp SizeOf (List _ len) = Right (Integer len)
 evalUnaryOp SizeOf (Set _ len) = Right (Integer len)
+evalUnaryOp SizeOf (Object kvs) = Right (Integer (length kvs))
 evalUnaryOp _ _ = Left "Type error in unary operation"
 
 evalUnion :: BinaryOperation -> Value -> Value -> Either String Value

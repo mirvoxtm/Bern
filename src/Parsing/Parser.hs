@@ -557,7 +557,7 @@ parseForIn = do
     _ <- symbol "for"
     varName <- lexeme $ some letterChar
     idxVar <- optional (symbol "," >> lexeme (some letterChar))
-    _ <- symbol ":"
+    _ <- symbol ":" <|> symbol "in"
     collection <- parseExpression
     _ <- symbol "do"
     body <- parseBlockCommands
