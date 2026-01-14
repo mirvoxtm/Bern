@@ -60,7 +60,10 @@ interpretCommand (Assign name expr) table =
         Right v@(Function _)  -> return (insertHashtable table name v)
         Right v@(Lambda _)    -> return (insertHashtable table name v)
         Right v@(AlgebraicDataType _ _) -> return (insertHashtable table name v)
-        Right _               -> die "Unexpected value in assignment"
+        Right v@(CBinding _ _) -> return (insertHashtable table name v)
+        Right v@(Undefined)    -> die ("Undefined value in assignment at the provided function.")
+        Right v@(NaN)          -> return (insertHashtable table name v)
+        Right v               -> die ("Unexpected value in assignment: " ++ show v)
         Left err              -> die err
 
 interpretCommand (AssignIndex name idxExprs expr) table = do
@@ -219,6 +222,8 @@ interpretCommand (CForeignDecl name libPath argTypes retType) table = do
 tryLoadFromLibs :: [String] -> String -> [String] -> String -> IO (Either String ([Value] -> IO Value))
 tryLoadFromLibs [] funcName _ _ = 
     return $ Left $ "Could not find function " ++ funcName ++ " in any library"
+tryLoadFromLibs [libPath] funcName argTypes retType = do
+    FFI.loadCFunction libPath funcName argTypes retType
 tryLoadFromLibs (libPath:rest) funcName argTypes retType = do
     result <- FFI.loadCFunction libPath funcName argTypes retType
     case result of

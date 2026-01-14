@@ -223,16 +223,16 @@ parseCBinding = do
     -- Parse the library path (the . so/. dll file)
     _ <- symbolNoNl "("
     libPath <- parseStringLiteral
-    _ <- symbolNoNl ","
-    
-    -- Parse the list of argument types ("int", "double", ...)
-    argTypes <- parseTypeString `sepBy` symbolNoNl ","
+    mArgs <- optional $ do
+        _ <- symbolNoNl ","
+        parseTypeString `sepBy1` symbolNoNl ","
     _ <- symbolNoNl ")"
 
     -- Arrow indicating return type
     _ <- symbolNoNl "->"
     retType <- parseTypeString
-    
+
+    let argTypes = maybe [] id mArgs
     -- Return a command that loads the C function
     return $ CForeignDecl funcName libPath argTypes retType
   where
@@ -568,7 +568,8 @@ parseWhile = do
     return $ While cond cmd
 
 parseSingleCommand :: Parser Command
-parseSingleCommand = try parseAssignment
+parseSingleCommand = try parseCBinding
+               <|> try parseAssignment
                <|> try parseImport
                <|> try parseFunctionDef
                <|> try parseReturn
@@ -578,7 +579,6 @@ parseSingleCommand = try parseAssignment
                <|> try parseRepeat
                <|> try parseWhile
                <|> try parseAlgebraicDataType
-               <|> try parseCBinding
                <|> (Print <$> parseExpression)
 
 parseImport :: Parser Command

@@ -180,6 +180,8 @@ def to_int(s) do
     return helper(s, 0)
 end
 
+def int_to_double(n) -> n * 1.0
+
 -- get the index of an element in a list or set.
 def index_of(x, target) do
     if (::x == "List") then

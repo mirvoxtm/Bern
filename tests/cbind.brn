@@ -1,14 +1,70 @@
-foreign strlen("msvcrt.dll", "string") -> "int"
-foreign add("msvcrt.dll", "int", "int") -> "int"
+import core
+
+-- Binding some functions from the C standard library and math library
+-- For testing (Linux systems with glibc)
+foreign strlen("libc.so.6", "string") -> "int"
+foreign abs("libc.so.6", "int") -> "int"
+foreign sqrt("libm.so.6", "double") -> "double"
+foreign pow("libm.so.6", "double", "double") -> "double"
+foreign ceil("libm.so.6", "double") -> "double"
+foreign floor("libm.so.6", "double") -> "double"
+
+def test_strings() do    
+    texto1 = "Olá, Mundo!"
+    "Text: " + texto1
+    "Length: " + strlen(texto1)
+    
+    texto2 = "Hello, World!"
+    "Text: " + texto2
+    "Length: " + strlen(texto2)
+
+    empty = ""
+    "Empty string length: " + strlen(empty)
+end
+
+def test_integers() do
+    print("=== Integer Tests ===\n")
+    
+    "abs(-42) = " + abs(-42)    
+    "abs(42) = " + abs(42)    
+    "abs(0) = " + abs(0)    
+    "abs(-999) = " + abs(-999)
+end
+
+def test_doubles() do
+    "sqrt(16.0) = " + sqrt(16.0)
+    "sqrt(2.0) = " + sqrt(2.0)
+    "sqrt(100.0) = " + sqrt(100.0)
+    "pow(2.0, 8.0) = " + pow(2.0, 8.0)
+    "pow(3.0, 3.0) = " + pow(3.0, 3.0)
+    "pow(10.0, 2.0) = " + pow(10.0, 2.0)
+    "ceil(3.14) = " + ceil(3.14)
+    "floor(3.14) = " + floor(3.14)
+end
+
+def test_mixed() do    
+    text = "Programming"
+    len = strlen(text)
+
+    "The word '" + text + "' has " + len + " character  s\n"
+
+    sqrt_len = sqrt(int_to_double(len))
+    "Square root of length: " + sqrt_len + "\n"
+
+    abs_result = abs(-10)
+    "abs(-10) = " + abs_result + "\n"
+
+    power = pow(int_to_double(abs_result), int_to_double(2))
+    "That number squared: " + power + "\n\n"
+end
 
 def main() do
-    texto = "Olá, Mundo!"
-    tam = strlen(texto)
+    test_strings()
+    test_integers()
+    test_doubles()
+    test_mixed()
     
-    tam
-
-    soma = add(10, 20)
-    soma
+    "=== All Tests Complete ===\n"
 end
 
 main()
