@@ -210,9 +210,16 @@ interpretCommand (Concat cmd1 cmd2) table = do
         else interpretCommand cmd2 table'
 
 interpretCommand (CForeignDecl name libPath argTypes retType) table = do    
+    -- Evaluate the library path expression
+    libPathVal <- case evaluate libPath table of
+        Right v -> case valueToString v of
+            Just s  -> return s
+            Nothing -> die "Library path must be a string or convertible to string"
+        Left err -> die err
+
     -- Try to load the function from available libraries
-    result <- tryLoadFromLibs [libPath] name argTypes retType
-    
+    result <- tryLoadFromLibs [libPathVal] name argTypes retType
+
     case result of
         Left err -> die $ "Failed to bind C function " ++ name ++ ": " ++ err
         Right wrapper -> do

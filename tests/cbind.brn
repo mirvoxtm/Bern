@@ -1,13 +1,18 @@
 import core
 
+-- Linux is 'libc.so.6' and 'libm.so.6' for C standard library and math library
+-- Windows would be 'msvcrt.dll' for C standard library functions
+cpath = "msvcrt.dll"
+
 -- Binding some functions from the C standard library and math library
 -- For testing (Linux systems with glibc)
-foreign strlen("libc.so.6", "string") -> "int"
-foreign abs("libc.so.6", "int") -> "int"
-foreign sqrt("libm.so.6", "double") -> "double"
-foreign pow("libm.so.6", "double", "double") -> "double"
-foreign ceil("libm.so.6", "double") -> "double"
-foreign floor("libm.so.6", "double") -> "double"
+foreign strlen(cpath, "string") -> "int"
+foreign abs(cpath, "int") -> "int"
+foreign sqrt(cpath, "double") -> "double"
+foreign pow(cpath, "double", "double") -> "double"
+foreign ceil(cpath, "double") -> "double"
+foreign floor(cpath, "double") -> "double"
+
 
 def test_strings() do    
     texto1 = "Olá, Mundo!"
@@ -46,7 +51,7 @@ def test_mixed() do
     text = "Programming"
     len = strlen(text)
 
-    "The word '" + text + "' has " + len + " character  s\n"
+    "The word '" + text + "' has " + len + " characters"
 
     sqrt_len = sqrt(int_to_double(len))
     "Square root of length: " + sqrt_len + "\n"

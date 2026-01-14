@@ -156,5 +156,5 @@ data Command = Skip
                 | Input String Expression                     -- input var prompt
                 | WriteFile Expression Expression             -- writefile filename expr
                 | AlgebraicTypeDef AlgebraicDataTypeDef
-                | CForeignDecl String String [String] String -- foreign funcName (argTypes) -> retType
+                | CForeignDecl String Expression [String] String -- foreign funcName (argTypes) -> retType
                 deriving (Show, Eq)

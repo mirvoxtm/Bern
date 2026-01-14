@@ -220,9 +220,9 @@ parseCBinding = do
         rest <- many (alphaNumChar <|> char '_')
         return (first :  rest)
     
-    -- Parse the library path (the . so/. dll file)
+    -- Parse the library path (the .so/.dll file)
     _ <- symbolNoNl "("
-    libPath <- parseStringLiteral
+    libPathExpr <- parseExpression
     mArgs <- optional $ do
         _ <- symbolNoNl ","
         parseTypeString `sepBy1` symbolNoNl ","
@@ -234,7 +234,7 @@ parseCBinding = do
 
     let argTypes = maybe [] id mArgs
     -- Return a command that loads the C function
-    return $ CForeignDecl funcName libPath argTypes retType
+    return $ CForeignDecl funcName libPathExpr argTypes retType
   where
     parseStringLiteral ::  Parser String
     parseStringLiteral = lexeme $ do
