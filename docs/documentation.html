@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bern Documentation</title>
+    <link rel="icon" type="image/png" href="images/cat.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #5b5f97;
+            --primary-dark: #4a4d7a;
+            --accent: #7b9fc4;
+            --bg: #ffffff;
+            --text: #333;
+            --text-light: #666;
+            --border: #ddd;
+            --code-bg: #f8f8f8;
+            --sidebar-bg: #f9fafb;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.7;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        header {
+            background: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        nav {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        nav a {
+            color: var(--text);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--primary);
+        }
+
+        .layout {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .sidebar {
+            width: 280px;
+            padding: 2rem 1.5rem;
+            position: sticky;
+            top: 73px;
+            height: calc(100vh - 73px);
+            overflow-y: auto;
+            border-right: 1px solid var(--border);
+        }
+
+        .sidebar h3 {
+            color: var(--primary-dark);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 1.5rem 0 0.75rem;
+        }
+
+        .sidebar h3:first-child {
+            margin-top: 0;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            margin: 0.4rem 0;
+        }
+
+        .sidebar a {
+            color: var(--text-light);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: block;
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .sidebar a:hover {
+            color: var(--primary);
+            background: rgba(91, 95, 151, 0.1);
+        }
+
+        .container {
+            flex: 1;
+            padding: 3rem 2rem;
+            max-width: 1000px;
+        }
+
+        .doc-section {
+            margin: 4rem 0;
+        }
+
+        .doc-section h2 {
+            color: var(--primary);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .doc-section h3 {
+            color: var(--primary-dark);
+            font-size: 1.3rem;
+            margin: 2rem 0 1rem;
+        }
+
+        .doc-section h4 {
+            color: var(--primary-dark);
+            font-size: 1.1rem;
+            margin: 1.5rem 0 0.75rem;
+        }
+
+        .doc-section p {
+            color: var(--text-light);
+            margin-bottom: 1rem;
+            font-size: 1.05rem;
+        }
+
+        .doc-section ul {
+            margin: 1rem 0 1rem 2rem;
+            color: var(--text-light);
+        }
+
+        .doc-section li {
+            margin: 0.5rem 0;
+        }
+
+        code {
+            background: var(--code-bg);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: var(--primary-dark);
+        }
+
+        .simple-code {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            white-space: pre;
+        }
+
+        .note {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .note strong {
+            color: #f57c00;
+        }
+
+        .example-box {
+            background: #f0f4f8;
+            border: 1px solid #d0dae5;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .example-box h4 {
+            color: var(--primary-dark);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .function-sig {
+            background: #e8eaf6;
+            border-left: 4px solid var(--primary);
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.95rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                gap: 1rem;
+            }
+            
+            .container {
+                padding: 2rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="#" class="logo"><img src="images/cat.png" alt="Bern Logo" width="20%" style="margin-top: 10px;"></a>
+            <nav>
+                <a href="#basics">Basics</a>
+                <a href="#libraries">Libraries</a>
+                <a href="#conditionals">Conditionals</a>
+                <a href="#functions">Functions</a>
+                <a href="#loops">Loops</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <h3>Language Basics</h3>
+            <ul>
+                <li><a href="#basics">Basics</a></li>
+                <li><a href="#conditionals">Conditionals</a></li>
+                <li><a href="#functions">Functions</a></li>
+                <li><a href="#loops">Loops</a></li>
+                <li><a href="#lists">Lists</a></li>
+                <li><a href="#sets">Sets</a></li>
+                <li><a href="#objects">Objects</a></li>
+                <li><a href="#adt">ADTs</a></li>
+            </ul>
+
+            <h3>Standard Libraries</h3>
+            <ul>
+                <li><a href="#lib-core">core</a></li>
+                <li><a href="#lib-math">math</a></li>
+                <li><a href="#lib-strings">strings</a></li>
+                <li><a href="#lib-random">random</a></li>
+                <li><a href="#lib-assert">assert</a></li>
+            </ul>
+
+            <h3>Other Features</h3>
+            <ul>
+                <li><a href="#imports">Imports</a></li>
+                <li><a href="#input">User Input</a></li>
+                <li><a href="#globals">Global Functions</a></li>
+            </ul>
+        </aside>
+
+        <div class="container">
+            <h1 style="color: var(--primary); font-size: 2.5rem; margin-bottom: 0.5rem;">Bern Language Documentation</h1>
+            <p style="color: var(--text-light); font-size: 1.2rem; margin-bottom: 3rem;">A comprehensive guide to the Bern programming language and its standard libraries</p>
+
+ <!-- BASICS -->
+        <div class="doc-section" id="basics">
+            <h2>Basics</h2>
+            
+            <h3>Literals</h3>
+            <p>In Bern, literals are automatically interpreted and printed. You can write values directly and they'll be evaluated immediately:</p>
+            
+            <pre class="simple-code">"Hello, World!"
+23
+3.14
+true</pre>
+
+            <h3>Variables</h3>
+            <p>Variables are defined using the simple <code>name = value</code> syntax. Bern supports various data types including integers, doubles, strings, and booleans:</p>
+            
+            <pre class="simple-code">integer = 2
+double = 3.14
+helloworld = "Hello, World!"
+isActive = true</pre>
+
+            <h3>Evaluation</h3>
+            <p>Like literals, variables can be called directly and will be properly evaluated. Simply write the variable name to see its value:</p>
+            
+            <pre class="simple-code">helloworld
+-- Output: "Hello, World!"
+
+integer
+-- Output: 2</pre>
+
+            <h3>Type Checking and Length</h3>
+            <p>Bern provides two special operators for introspection:</p>
+            
+            <ul>
+                <li><code>::</code> (typeof) - Returns the type of a value as a string</li>
+                <li><code>:></code> (length) - Returns the length of a list, set, or string</li>
+            </ul>
+
+            <pre class="simple-code">typeof_integer = :: 2
+-- Output: "Int"
+
+typeof_string = :: "hello"
+-- Output: "String"
+
+length_list = :> [1,2,3,4] 
+-- Output: 4
+
+length_string = :> "hello"
+-- Output: 5</pre>
+        </div>
+
+        <!-- CONDITIONALS -->
+        <div class="doc-section" id="conditionals">
+            <h2>Conditionals</h2>
+            
+            <p>Bern supports conditional execution through if-then-else statements. These allow your code to make decisions based on conditions.</p>
+
+            <h3>If-Then-Else Statement</h3>
+            <p>The basic conditional structure lets you execute different code based on whether a condition is true or false:</p>
+            
+            <pre class="simple-code">age = 18
+if age >= 18 then
+    "You are an adult."
+else
+    "You are a minor."
+end
+-- Output: "You are an adult."</pre>
+
+            <h3>Else-If Chains</h3>
+            <p>For multiple conditions, use <code>else if</code> to check additional cases in sequence:</p>
+            
+            <pre class="simple-code">score = 85
+if score >= 90 then
+    "You got an A."
+else if score >= 80 then
+    "You got a B."
+else if score >= 70 then
+    "You got a C."
+else
+    "You need to improve."
+end
+-- Output: "You got a B."</pre>
+
+            <div class="example-box">
+                <h4>Example: FizzBuzz</h4>
+                <p>A classic programming challenge demonstrating nested conditionals:</p>
+                <pre class="simple-code">numbers = [1..100]
+for n : numbers do 
+    if n % 15 == 0 then 
+        "FizzBuzz"
+    else if n % 3 == 0 then
+        "Fizz"
+    else if n % 5 == 0 then
+        "Buzz"
+    else
+        n
+    end
+end</pre>
+            </div>
+        </div>
+
+        <!-- FUNCTIONS -->
+        <div class="doc-section" id="functions">
+            <h2>Functions</h2>
+            
+            <p>Bern functions are powerful and flexible, supporting pattern matching, inline arrow syntax, and block bodies with explicit returns.</p>
+
+            <h3>Simple Function Definition</h3>
+            <p>For one-line functions, use the arrow syntax <code>def name(params) -> expr</code>:</p>
+            
+            <pre class="simple-code">def add(x, y) -> x + y
+add(2, 3)
+-- Output: 5
+
+def square(x) -> x * x
+square(4)
+-- Output: 16</pre>
+
+            <h3>Pattern Matching</h3>
+            <p>Define multiple clauses for a function. Bern will use the first matching pattern:</p>
+            
+            <pre class="simple-code">def sign(0) -> "zero"
+def sign(n) -> "positive"
+
+sign(0)
+-- Output: "zero"
+
+sign(42)
+-- Output: "positive"</pre>
+
+            <h3>Wildcards and Literal Matching</h3>
+            <p>Use <code>_</code> to ignore parameters, or match specific literal values:</p>
+            
+            <pre class="simple-code">def greet("Alice") -> "Hi, Alice!"
+def greet(_) -> "Hello, someone else!"
+
+greet("Alice")
+-- Output: "Hi, Alice!"
+
+greet("Bob")
+-- Output: "Hello, someone else!"</pre>
+
+            <h3>Block-Bodied Functions</h3>
+            <p>For complex functions, use <code>do ... end</code> blocks with explicit <code>return</code> statements:</p>
+            
+            <pre class="simple-code">def sumList(xs) do
+    total = 0
+    for n : xs do
+        total = total + n
+    end
+    return total
+end
+
+sumList([1,2,3])
+-- Output: 6</pre>
+
+            <h3>Lambda Functions</h3>
+            <p>Anonymous functions use backslash syntax and can be assigned to variables or passed as arguments:</p>
+            
+            <pre class="simple-code">inc = \x -> x + 1
+pairSwap = \a, b -> [b, a]
+
+inc(10)
+-- Output: 11
+
+pairSwap(1, 2)
+-- Output: [2, 1]</pre>
+
+            <h3>Higher-Order Functions</h3>
+            <p>Functions can accept other functions as parameters:</p>
+            
+            <pre class="simple-code">def applyTwice(f, x) -> f(f(x))
+
+applyTwice(\n -> n * 2, 5)
+-- Output: 20 (5 * 2 * 2)</pre>
+        </div>
+
+        <!-- LOOPS -->
+        <div class="doc-section" id="loops">
+            <h2>Loops</h2>
+            
+            <p>Bern uses Odin-inspired loop syntax where <code>for</code> is the only loop keyword. The behavior changes based on how you use it.</p>
+
+            <h3>Repeat For</h3>
+            <p>Execute a block a specific number of times:</p>
+            
+            <pre class="simple-code">for 3 do
+    "Hello, Loops!"
+end
+-- Output: "Hello, Loops!" (three times)</pre>
+
+            <h3>Conditional For</h3>
+            <p>Repeat while a condition is true (like a while loop):</p>
+            
+            <pre class="simple-code">counter = 2
+for counter > 0 do
+    "Hello, Loops!"
+    counter = counter - 1
+end
+-- Output: "Hello, Loops!" (twice)</pre>
+
+            <h3>Infinite Loop</h3>
+            <p>Create an infinite loop with <code>for true</code>:</p>
+            
+            <pre class="simple-code">for true do
+    "This runs forever!"
+end</pre>
+
+            <div class="note">
+                <strong>Note:</strong> Be careful with infinite loops! Make sure you have a way to break out of them in your actual programs.
+            </div>
+
+            <h3>For-In Loop</h3>
+            <p>Iterate over elements in lists, sets, or strings:</p>
+            
+            <pre class="simple-code">text = "Bern"
+for char : text do
+    "Current char is: " + char
+end
+-- Output: 
+-- "Current char is: B"
+-- "Current char is: e"
+-- "Current char is: r"
+-- "Current char is: n"</pre>
+
+            <h3>For-In with Index</h3>
+            <p>Get both the element and its index during iteration:</p>
+            
+            <pre class="simple-code">text = "Bern"
+for char, index : text do
+    "Char: " + char + " at index: " + index
+end
+-- Output:
+-- "Char: B at index: 0"
+-- "Char: e at index: 1"
+-- "Char: r at index: 2"
+-- "Char: n at index: 3"</pre>
+        </div>
+
+        <!-- LISTS -->
+        <div class="doc-section" id="lists">
+            <h2>Lists</h2>
+            
+            <p>A <strong>list</strong> is an ordered collection of elements of the same type. Lists allow duplicates and preserve insertion order. In Bern, strings are also treated as lists of characters.</p>
+
+            <h3>Declaring Lists</h3>
+            <pre class="simple-code">numbers_list = [1,2,3,4,5]
+numbers_list
+-- Output: [1,2,3,4,5]</pre>
+
+            <h3>Range Syntax</h3>
+            <p>Create lists using Haskell-style range notation:</p>
+            
+            <pre class="simple-code">range_list = [5..10]
+-- Output: [5,6,7,8,9,10]
+
+small_range = [1..5]
+-- Output: [1,2,3,4,5]</pre>
+
+            <h3>Indexing</h3>
+            <p>Access specific elements using zero-based indexing:</p>
+            
+            <pre class="simple-code">range_list = [5..10]
+range_list[3]
+-- Output: 8 (fourth element)</pre>
+
+            <h3>List Arithmetic</h3>
+            <p>Arithmetic operations with a scalar apply to every element:</p>
+            
+            <pre class="simple-code">[1,2] + 2
+-- Output: [3,4]
+
+[10,20,30] * 2
+-- Output: [20,40,60]</pre>
+
+            <p>Operations between two lists require equal lengths:</p>
+            
+            <pre class="simple-code">[1,2,3] + [4,5,6]
+-- Output: [5,7,9]
+
+[10,20] - [5,3]
+-- Output: [5,17]</pre>
+
+            <h3>List Set Operations</h3>
+            <p>Lists support set-like operations while preserving order and allowing duplicates:</p>
+            
+            <ul>
+                <li><code>&lt;&gt;</code> - Union (concatenation)</li>
+                <li><code>&lt;/&gt;</code> - Difference (elements in first but not second)</li>
+                <li><code>|&gt;</code> - Intersection (common elements)</li>
+                <li><code>&lt;|</code> - Symmetric difference (elements in either but not both)</li>
+            </ul>
+
+            <pre class="simple-code">[1,2,3] <> [3,4,5]
+-- Output: [1,2,3,3,4,5]
+
+[1,2,3] </> [2,3]
+-- Output: [1]
+
+[1,2,3] |> [2,3]
+-- Output: [2,3]
+
+[1,2,3] <| [2,3]
+-- Output: [1]</pre>
+
+            <div class="example-box">
+                <h4>Complex List Operations</h4>
+                <pre class="simple-code">result = ([1,2,3,4] <> [3..5]) <| ([2,3,4] |> [4,5]) </> [1]
+-- Combines concatenation, symmetric difference, 
+-- intersection, and regular difference</pre>
+            </div>
+        </div>
+
+        <!-- SETS -->
+        <div class="doc-section" id="sets">
+            <h2>Sets</h2>
+            
+            <p>A <strong>set</strong> is an unordered collection of unique elements that can be of different types. Sets automatically remove duplicates and don't preserve order.</p>
+
+            <h3>Declaring Sets</h3>
+            <pre class="simple-code">numbers_set = {1,2,3,4,5}
+numbers_set
+-- Output: {1,2,3,4,5}
+
+mixed_set = {1, "hello", 3.14}
+-- Sets can contain different types</pre>
+
+            <h3>Indexing</h3>
+            <p>While sets are unordered, you can still access elements by index:</p>
+            
+            <pre class="simple-code">numbers_set = {1,2,3,4,5}
+numbers_set[2]
+-- Output: (some element from the set)</pre>
+
+            <h3>Set Arithmetic</h3>
+            <p>Adding to a set inserts elements (if not already present):</p>
+            
+            <pre class="simple-code">{1,2} + 3
+-- Output: {1,2,3}
+
+{1,2} + {3,4}
+-- Output: {1,2,3,4}
+
+{1,2,3} + 2
+-- Output: {1,2,3} (2 already exists)</pre>
+
+            <p>Subtraction removes elements:</p>
+            
+            <pre class="simple-code">{1,2,3} - 2
+-- Output: {1,3}</pre>
+
+            <h3>Set Operations</h3>
+            <p>Mathematical set operations with automatic duplicate removal:</p>
+            
+            <pre class="simple-code">{1,2,3} <> {3,4,5}
+-- Union: {1,2,3,4,5}
+
+{1,2,'a',3.5} <> {3,4,'b',1}
+-- Union with mixed types: {1,2,'a',3.5,3,4,'b'}
+
+{1,2,3} |> {2,3,4}
+-- Intersection: {2,3}
+
+{1,2,3} </> {2,3,4}
+-- Difference: {1}
+
+{1,2,3} <| {2,3}
+-- Symmetric difference: {1}</pre>
+
+            <div class="note">
+                <strong>Remember:</strong> Sets automatically remove duplicates and don't guarantee order. If you need ordered data or duplicates, use lists instead.
+            </div>
+        </div>
+
+        <!-- OBJECTS -->
+        <div class="doc-section" id="objects">
+            <h2>Objects</h2>
+            
+            <p>Bern supports objects (hashmaps/hashtables) using the <code>#{...}#</code> notation for key-value pairs.</p>
+
+            <h3>Declaring Objects</h3>
+            <pre class="simple-code">obj = #{
+    key: "value",
+    hello: "world"
+}#
+obj
+-- Output: #{key: "value", hello: "world"}#</pre>
+
+            <h3>Updating Values</h3>
+            <p>Reassign values using bracket notation:</p>
+            
+            <pre class="simple-code">obj["key"] = "new_value"
+obj
+-- Output: #{key: "new_value", hello: "world"}#</pre>
+
+            <h3>Adding Fields</h3>
+            <p>Add new key-value pairs by assigning to a new key:</p>
+            
+            <pre class="simple-code">obj["new_key"] = "added_value"
+obj
+-- Output: #{key: "new_value", hello: "world", new_key: "added_value"}#</pre>
+
+            <h3>Nested Objects</h3>
+            <p>Objects can contain other objects. Access nested values with multiple indexing:</p>
+            
+            <pre class="simple-code">obj["test"] = #{
+    nested_key: "nested_value"
+}#
+
+obj["test"]["nested_key"]
+-- Output: "nested_value"</pre>
+
+            <div class="example-box">
+                <h4>Complete Object Example</h4>
+                <pre class="simple-code">person = #{
+    name: "Alice",
+    age: 25,
+    address: #{
+        city: "Boston",
+        zip: "02101"
+    }#
+}#
+
+person["address"]["city"]
+-- Output: "Boston"</pre>
+            </div>
+        </div>
+
+        <!-- ADTs -->
+        <div class="doc-section" id="adt">
+            <h2>Algebraic Data Types (ADTs)</h2>
+            
+            <p>ADTs allow you to define custom data types with multiple constructors, similar to enums or tagged unions in other languages.</p>
+
+            <h3>Defining ADTs</h3>
+            <p>Use the <code>adt</code> keyword followed by type name and constructors:</p>
+            
+            <pre class="simple-code">adt Shape = Circle Double | Rectangle Double Double</pre>
+
+            <p>Each constructor can have zero or more fields of specific types.</p>
+
+            <h3>Creating Instances</h3>
+            <p>Call constructors like functions to create instances:</p>
+            
+            <pre class="simple-code">c = Circle(5.0)
+r = Rectangle(3.0, 4.0)</pre>
+
+            <h3>Pattern Matching with ADTs</h3>
+            <p>Destructure ADTs in function definitions to access their fields:</p>
+            
+            <pre class="simple-code">def area(Circle(r)) -> 3.14159 * r * r
+def area(Rectangle(w, h)) -> w * h
+
+area(c)
+-- Output: 78.53975 (π * 5²)
+
+area(r)
+-- Output: 12.0 (3 * 4)</pre>
+
+            <h3>The Maybe Type</h3>
+            <p>A common ADT pattern for representing optional values:</p>
+            
+            <pre class="simple-code">adt Maybe = Just Int | None
+
+def safeDivide(n, 0) -> None()
+def safeDivide(n, m) -> Just(n / m)
+
+safeDivide(10, 3)
+-- Output: Just(3)
+
+safeDivide(5, 0)
+-- Output: None()</pre>
+
+            <div class="note">
+                <strong>Use Case:</strong> The Maybe type is perfect for operations that might fail, allowing you to handle success and failure cases explicitly without exceptions.
+            </div>
+        </div>
+
+
+            <!-- LIBRARY REFERENCE -->
+            <div class="doc-section" id="libraries">
+                <h2>Standard Library Reference</h2>
+                <p>Bern comes with several standard libraries that provide essential functionality. Import them using <code>import library_name</code>.</p>
+
+                <!-- CORE LIBRARY -->
+                <div id="lib-core" style="margin-top: 3rem;">
+                    <h3>core - Core Standard Library</h3>
+                    <p>The foundational library providing list operations, functional programming utilities, and type conversions.</p>
+                    
+                    <pre class="simple-code">import core</pre>
+
+                    <h4>List Operations</h4>
+                    
+                    <div class="function-sig">map(list, function) → list</div>
+                    <p>Apply a function to each element of a list.</p>
+                    <pre class="simple-code">map([1,2,3], \x -> x * 2)
+-- Output: [2,4,6]</pre>
+
+                    <div class="function-sig">filter(list, predicate) → list</div>
+                    <p>Keep only elements where predicate returns true.</p>
+                    <pre class="simple-code">filter([1,2,3,4,5], \x -> x % 2 == 0)
+-- Output: [2,4]</pre>
+
+                    <div class="function-sig">foldl(list, accumulator, function) → value</div>
+                    <p>Reduce a list from left to right.</p>
+                    <pre class="simple-code">foldl([1,2,3], 0, \acc, x -> acc + x)
+-- Output: 6</pre>
+
+                    <div class="function-sig">foldr(list, accumulator, function) → value</div>
+                    <p>Reduce a list from right to left.</p>
+
+                    <h4>Aggregate Functions</h4>
+                    
+                    <div class="function-sig">sum(list) → number</div>
+                    <p>Sum all elements in a list.</p>
+                    <pre class="simple-code">sum([1,2,3,4])
+-- Output: 10</pre>
+
+                    <div class="function-sig">product(list) → number</div>
+                    <p>Multiply all elements in a list.</p>
+
+                    <div class="function-sig">min(list) → number</div>
+                    <p>Find the minimum value in a list.</p>
+
+                    <div class="function-sig">max(list) → number</div>
+                    <p>Find the maximum value in a list.</p>
+
+                    <h4>List Manipulation</h4>
+                    
+                    <div class="function-sig">reverse(collection) → collection</div>
+                    <p>Reverse a list or set. Automatically detects type.</p>
+                    <pre class="simple-code">reverse([1,2,3])
+-- Output: [3,2,1]</pre>
+
+                    <div class="function-sig">take(n, list) → list</div>
+                    <p>Take first n elements from a list.</p>
+
+                    <div class="function-sig">drop(n, list) → list</div>
+                    <p>Drop first n elements from a list.</p>
+
+                    <div class="function-sig">head(list) → element</div>
+                    <p>Get the first element of a list.</p>
+
+                    <div class="function-sig">tail(list) → list</div>
+                    <p>Get all elements except the first.</p>
+
+                    <h4>Predicates</h4>
+                    
+                    <div class="function-sig">isEmpty(list) → boolean</div>
+                    <p>Check if a list is empty.</p>
+
+                    <div class="function-sig">any(list, predicate) → boolean</div>
+                    <p>Check if any element satisfies the predicate.</p>
+
+                    <div class="function-sig">all(list, predicate) → boolean</div>
+                    <p>Check if all elements satisfy the predicate.</p>
+
+                    <div class="function-sig">find(list, predicate) → element | false</div>
+                    <p>Return first element matching predicate, or false if none found.</p>
+
+                    <h4>Combining Lists</h4>
+                    
+                    <div class="function-sig">zip(list1, list2) → list</div>
+                    <p>Combine two lists into pairs.</p>
+                    <pre class="simple-code">zip([1,2,3], ['a','b','c'])
+-- Output: [[1,'a'], [2,'b'], [3,'c']]</pre>
+
+                    <div class="function-sig">zipWith(list1, list2, function) → list</div>
+                    <p>Combine two lists using a function.</p>
+
+                    <h4>Utility Functions</h4>
+                    
+                    <div class="function-sig">typeOf(value) → string</div>
+                    <p>Get the type of a value (abstraction for <code>::</code>).</p>
+
+                    <div class="function-sig">length(value) → int</div>
+                    <p>Get length of string, list, or set (abstraction for <code>:></code>).</p>
+
+                    <div class="function-sig">index_of(collection, target) → int</div>
+                    <p>Find the index of an element in a list or set. Returns -1 if not found.</p>
+
+                    <div class="function-sig">to_int(string) → int</div>
+                    <p>Convert a string to an integer.</p>
+                    <pre class="simple-code">to_int("42")
+-- Output: 42</pre>
+
+                    <div class="function-sig">int_to_double(int) → double</div>
+                    <p>Convert an integer to a double.</p>
+                </div>
+
+                <!-- MATH LIBRARY -->
+                <div id="lib-math" style="margin-top: 3rem;">
+                    <h3>math - Mathematical Functions</h3>
+                    <p>Comprehensive math library inspired by C's math.h, providing constants, basic operations, and transcendental functions.</p>
+                    
+                    <pre class="simple-code">import math</pre>
+
+                    <h4>Constants</h4>
+                    <ul>
+                        <li><code>pi</code> = 3.141592653589793</li>
+                        <li><code>tau</code> = 6.283185307179586 (2π)</li>
+                        <li><code>e</code> = 2.718281828459045</li>
+                    </ul>
+
+                    <h4>Basic Operations</h4>
+                    
+                    <div class="function-sig">abs(x) → number</div>
+                    <p>Absolute value of a number.</p>
+
+                    <div class="function-sig">fabs(x) → double</div>
+                    <p>Alias for abs (mirrors C's fabs).</p>
+
+                    <div class="function-sig">fmin(a, b) → double</div>
+                    <p>Return the smaller of two numbers.</p>
+
+                    <div class="function-sig">fmax(a, b) → double</div>
+                    <p>Return the larger of two numbers.</p>
+
+                    <div class="function-sig">clamp(x, lo, hi) → number</div>
+                    <p>Constrain x to the range [lo, hi].</p>
+
+                    <div class="function-sig">fmod(x, y) → number</div>
+                    <p>Floating-point remainder (C's fmod).</p>
+
+                    <h4>Power and Root Functions</h4>
+                    
+                    <div class="function-sig">pow(base, exponent) → number</div>
+                    <p>Raise base to the power of exponent. Uses integer exponentiation by squaring.</p>
+                    <pre class="simple-code">pow(2, 8)
+-- Output: 256</pre>
+
+                    <div class="function-sig">sqrt(x) → double</div>
+                    <p>Square root using Newton-Raphson method.</p>
+
+                    <div class="function-sig">hypot(a, b) → double</div>
+                    <p>Hypotenuse length: √(a² + b²)</p>
+
+                    <h4>Exponential and Logarithmic</h4>
+                    
+                    <div class="function-sig">exp(x) → double</div>
+                    <p>Exponential function e^x using Taylor series.</p>
+
+                    <div class="function-sig">log(x) → double</div>
+                    <p>Natural logarithm (base e) using Newton's method.</p>
+
+                    <div class="function-sig">log10(x) → double</div>
+                    <p>Base-10 logarithm.</p>
+
+                    <h4>Trigonometric Functions</h4>
+                    
+                    <div class="function-sig">sin(radians) → double</div>
+                    <p>Sine of angle in radians.</p>
+
+                    <div class="function-sig">cos(radians) → double</div>
+                    <p>Cosine of angle in radians.</p>
+
+                    <div class="function-sig">tan(radians) → double</div>
+                    <p>Tangent of angle in radians.</p>
+
+                    <div class="function-sig">atan(z) → double</div>
+                    <p>Inverse tangent.</p>
+
+                    <div class="function-sig">atan2(y, x) → double</div>
+                    <p>Two-argument arctangent respecting quadrants.</p>
+
+                    <h4>Angle Conversion</h4>
+                    
+                    <div class="function-sig">toRadians(degrees) → double</div>
+                    <p>Convert degrees to radians.</p>
+
+                    <div class="function-sig">toDegrees(radians) → double</div>
+                    <p>Convert radians to degrees.</p>
+                </div>
+
+                <!-- STRINGS LIBRARY -->
+                <div id="lib-strings" style="margin-top: 3rem;">
+                    <h3>strings - String Manipulation</h3>
+                    <p>Comprehensive string processing utilities for common text operations.</p>
+                    
+                    <pre class="simple-code">import strings</pre>
+
+                    <h4>String Extraction</h4>
+                    
+                    <div class="function-sig">substring(string, start, end) → string</div>
+                    <p>Extract a portion of a string from start to end index.</p>
+                    <pre class="simple-code">substring("Hello", 1, 4)
+-- Output: "ell"</pre>
+
+                    <div class="function-sig">char_at(string, index) → char</div>
+                    <p>Get character at specific index.</p>
+
+                    <h4>String Splitting and Joining</h4>
+                    
+                    <div class="function-sig">split(string, delimiter) → list</div>
+                    <p>Split a string by delimiter into a list of strings.</p>
+                    <pre class="simple-code">split("a,b,c", ",")
+-- Output: ["a", "b", "c"]</pre>
+
+                    <h4>Case Conversion</h4>
+                    
+                    <div class="function-sig">to_upper(string) → string</div>
+                    <p>Convert string to uppercase.</p>
+
+                    <div class="function-sig">to_lower(string) → string</div>
+                    <p>Convert string to lowercase.</p>
+
+                    <div class="function-sig">char_to_upper(char) → char</div>
+                    <p>Convert single character to uppercase.</p>
+
+                    <div class="function-sig">char_to_lower(char) → char</div>
+                    <p>Convert single character to lowercase.</p>
+
+                    <h4>String Modification</h4>
+                    
+                    <div class="function-sig">trim(string) → string</div>
+                    <p>Remove leading and trailing whitespace, newlines, and tabs.</p>
+                    <pre class="simple-code">trim("  hello  ")
+-- Output: "hello"</pre>
+
+                    <div class="function-sig">replace(string, old, new) → string</div>
+                    <p>Replace all occurrences of old substring with new substring.</p>
+                    <pre class="simple-code">replace("hello world", "world", "Bern")
+-- Output: "hello Bern"</pre>
+
+                    <h4>String Searching</h4>
+                    
+                    <div class="function-sig">contains(string, substring) → boolean</div>
+                    <p>Check if string contains substring.</p>
+
+                    <div class="function-sig">starts_with(string, prefix) → boolean</div>
+                    <p>Check if string starts with prefix.</p>
+
+                    <div class="function-sig">ends_with(string, suffix) → boolean</div>
+                    <p>Check if string ends with suffix.</p>
+                </div>
+
+                <!-- RANDOM LIBRARY -->
+                <div id="lib-random" style="margin-top: 3rem;">
+                    <h3>random - Random Number Generation</h3>
+                    <p>Cross-platform random number generation using foreign function interface to system libraries.</p>
+                    <div class="note">
+                    <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+                    </div>
+
+                    <pre class="simple-code">import random</pre>
+
+                    <div class="note">
+                        <strong>Note:</strong> The random library automatically detects your operating system and uses the appropriate C library (msvcrt.dll on Windows, libc.so.6 on Unix-like systems).
+                    </div>
+
+                    <h4>Random Number Generation</h4>
+                    
+                    <div class="function-sig">get_random_int() → int</div>
+                    <p>Generate a random integer.</p>
+                    <pre class="simple-code">get_random_int()
+-- Output: (random integer)</pre>
+
+                    <div class="function-sig">get_random_double() → double</div>
+                    <p>Generate a random double between 0 and 1.</p>
+
+                    <div class="function-sig">get_random_number() → number</div>
+                    <p>Generate either a random int or random double (randomly chosen).</p>
+
+                    <h4>Random Selection</h4>
+                    
+                    <div class="function-sig">random_choice(list) → element</div>
+                    <p>Return a random element from a list.</p>
+                    <pre class="simple-code">random_choice(["apple", "banana", "cherry"])
+-- Output: (random fruit)</pre>
+
+                    <h4>Random Strings</h4>
+                    
+                    <div class="function-sig">get_random_string(length) → string</div>
+                    <p>Generate a random alphanumeric string of specified length.</p>
+                    <pre class="simple-code">get_random_string(10)
+-- Output: "aB3xK9mP2q" (example)</pre>
+                </div>
+
+                <!-- ASSERT LIBRARY -->
+                <div id="lib-assert" style="margin-top: 3rem;">
+                    <h3>assert - Testing Utilities</h3>
+                    <p>Simple assertion functions for writing tests in Bern.</p>
+                    
+                    <pre class="simple-code">import assert</pre>
+
+                    <h4>Assertion Functions</h4>
+                    
+                    <div class="function-sig">assert_equals(name, got, expected) → string</div>
+                    <p>Assert that two values are equal. Returns "PASS" or "FAIL" with test name.</p>
+                    <pre class="simple-code">assert_equals("Addition test", 2 + 2, 4)
+-- Output: "Addition test PASS"
+
+assert_equals("Wrong test", 2 + 2, 5)
+-- Output: "Wrong test FAIL"</pre>
+
+                    <div class="function-sig">assert_approx(name, got, expected, tolerance) → string</div>
+                    <p>Assert that two numbers are approximately equal within a tolerance.</p>
+                    <pre class="simple-code">assert_approx("Pi test", 3.14159, 3.14, 0.01)
+-- Output: "Pi test PASS"</pre>
+
+                    <div class="function-sig">approx_eq(a, b, tolerance) → boolean</div>
+                    <p>Check if two numbers are approximately equal. Helper function for assert_approx.</p>
+                </div>
+            </div>
+            
+        <!-- IMPORTS -->
+        <div class="doc-section" id="imports">
+            <h2>Imports</h2>
+            
+            <p>Bern allows importing libraries to extend functionality. Use the <code>import</code> keyword to load standard libraries or custom modules.</p>
+
+            <h3>Importing the Core Library</h3>
+            <pre class="simple-code">import core</pre>
+
+            <h3>Core Library Functions</h3>
+            <p>Once imported, you can use functions like <code>map</code>, <code>filter</code>, and type conversions:</p>
+            
+            <pre class="simple-code">map([1,2,3,4,5], \x -> x + 2)
+-- Output: [3,4,5,6,7]
+
+def isEven(x) -> x % 2 == 0
+filter([1,2,3,4,5,6,7,8,9,10], isEven)
+-- Output: [2,4,6,8,10]</pre>
+
+            <h3>Type Conversion</h3>
+            <p>The core library provides conversion functions for handling input:</p>
+            
+            <pre class="simple-code">import core
+age_text = input("Type your age: ")
+age = to_int(age_text)
+"Your age in 5 years: " + (age + 5)</pre>
+        </div>
+
+        <!-- INPUT -->
+        <div class="doc-section" id="input">
+            <h2>User Input</h2>
+            
+            <p>Capture user input with the <code>input()</code> function, similar to Python.</p>
+
+            <h3>Basic Input</h3>
+            <pre class="simple-code">name = input("Type your name: ")
+name
+-- Displays whatever the user typed</pre>
+
+            <h3>Converting Input</h3>
+            <p>By default, <code>input()</code> returns text. Convert to other types using core library functions:</p>
+            
+            <pre class="simple-code">import core
+age_text = input("Type your age: ")
+age = to_int(age_text)
+"You'll be " + (age + 10) + " in 10 years"</pre>
+        </div>
+
+        <!-- GLOBAL FUNCTIONS -->
+        <div class="doc-section" id="globals">
+            <h2>Global Functions</h2>
+            
+            <p>Bern provides built-in functions for file operations and system utilities.</p>
+
+            <h3>File Operations</h3>
+            <ul>
+                <li><code>read_file(path)</code> - Read file contents as a string</li>
+                <li><code>write_file(path, content)</code> - Write content to a file</li>
+            </ul>
+
+            <pre class="simple-code">content = read_file("myfile.txt")
+write_file("output.txt", "Hello, Bern!")
+write_file("data.txt", content + "\nNew line")</pre>
+
+            <h3>System Information</h3>
+            <div class="note">
+                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+            </div>
+            <p>Returns the system the user is running. Useful for bindings.</p>
+            <pre class="simple-code">os = get_host_machine()
+-- Returns OS/system information</pre>
+
+<h3>fmap</h3>
+            <div class="note">
+                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+            </div>
+            <p>Applies a function to each element of a collection. Used too in Algebraic Data Types (ADTs) to modify contained values without breaking functorial context.</p>
+            <pre class="simple-code">ast Maybe = Just Int | None
+fmap(Just(5), \x -> x * 2)
+
+-- Output: Just(10)</pre>
+        </div>
+
+     <div class="doc-section" id="globals">
+            <h2>C Bindings</h2>
+            <div class="note">
+                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+            </div>
+            
+            <p>You can call C functions directly from Bern using the foreign function interface (FFI). This allows you to leverage existing C libraries and system calls.<br><br>
+            For this, you need to declare the C function signature using the <code>foreign</code> keyword, specifying the library, its function name, argument types and return type.</p>
+            </p>
+            <pre class="simple-code">foreign example("lib.so", "int") -> "void"</pre>
+            <p>Recommendation: Use get_host_machine() inside an auxiliary function to get the correct library path for multiple operating systems.</p>
+            <pre class="simple-code">def get_path() do
+    os = get_host_machine()
+    if os == "mingw64" || os == "mingw32" then
+        return "windows_lib.dll"
+    else
+        return "linux_lib.so.6"
+    end
+end</pre>
+
+        </div>
+    </div>
+    </div>
+
+    <footer>
+        Copyright © 2026 • All rights reserved • Built with ❤️ by <a href="https://mirvox.xyz/">Miguel Aguiar</a>
+    </footer>
+</body>
+</html>

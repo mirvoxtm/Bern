@@ -20,287 +20,7 @@
     <meta name="twitter:title" content="Bern Programming Language | Functional, Expressive, Modern">
     <meta name="twitter:description" content="Bern is a modern, functionally inspired programming language focused on expressiveness, pattern matching, algebraic data types, and clean syntax. Learn, explore, and download Bern.">
     <meta name="twitter:image" content="https://mirvoxtm.github.io/Bern/images/logo.png">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary: #5b5f97;
-            --primary-dark: #4a4d7a;
-            --accent: #7b9fc4;
-            --bg: #ffffff;
-            --text: #333;
-            --text-light: #666;
-            --border: #ddd;
-            --code-bg: #f8f8f8;
-        }
-
-        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.7;
-            color: var(--text);
-            background: var(--bg);
-        }
-
-        header {
-            background: white;
-            padding: 1rem 0;
-        }
-
-        .header-content {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--primary);
-            text-decoration: none;
-        }
-
-        nav {
-            display: flex;
-            gap: 2rem;
-        }
-
-        nav a {
-            color: var(--text);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        nav a:hover {
-            color: var(--primary);
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-        }
-
-        .hero {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .hero h1 {
-            font-size: 3rem;
-            color: var(--primary);
-            margin-bottom: 1rem;
-        }
-
-        .hero .subtitle {
-            font-size: 1.3rem;
-            color: var(--text-light);
-            margin-bottom: 2rem;
-        }
-
-        .feature-section {
-            display: grid;
-            grid-template-columns: 80px 1fr;
-            gap: 2rem;
-            margin: 4rem 0;
-            padding: 2rem 0;
-            border-top: 1px solid var(--border);
-        }
-
-        .feature-section:first-of-type {
-            border-top: none;
-        }
-
-        .feature-icon {
-            font-size: 3rem;
-            text-align: center;
-        }
-
-        .feature-content h2 {
-            color: var(--primary-dark);
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .feature-content p {
-            color: var(--text-light);
-            margin-bottom: 1rem;
-            font-size: 1.05rem;
-        }
-
-        .code-example {
-            display: grid;
-            grid-template-columns: 40px 1fr;
-            gap: 0;
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            margin: 1.5rem 0;
-            overflow: hidden;
-        }
-
-        .line-numbers {
-            background: #eee;
-            padding: 1.1rem 0.5rem;
-            text-align: right;
-            color: #999;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 0.8rem;
-            user-select: none;
-            border-right: 1px solid var(--border);
-        }
-
-        .code-content {
-            padding: 1rem;
-            overflow-x: auto;
-        }
-
-        .code-content pre {
-            margin: 0;
-            white-space: pre;
-            text-indent: 0;
-        }
-
-        .code-content code {
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 0.9rem;
-            line-height: 1.5;
-            color: var(--text);
-            font-feature-settings: 'liga' 1, 'calt' 1;
-            white-space: pre;
-            text-indent: 0;
-            display: block;
-        }
-
-        .doc-section {
-            margin: 3rem 0;
-        }
-
-        .doc-section h2 {
-            color: var(--primary);
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--border);
-        }
-
-        .doc-section h3 {
-            color: var(--primary-dark);
-            font-size: 1.3rem;
-            margin: 2rem 0 1rem;
-        }
-
-        .doc-section p {
-            color: var(--text-light);
-            margin-bottom: 1rem;
-        }
-
-        code {
-            background: var(--code-bg);
-            padding: 0.15rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 0.9em;
-            color: var(--primary-dark);
-            font-feature-settings: 'liga' 1, 'calt' 1;
-        }
-
-        .simple-code {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 1rem;
-            margin: 1rem 0;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 0.9rem;
-            overflow-x: auto;
-            font-feature-settings: 'liga' 1, 'calt' 1;
-            white-space: pre;
-        }
-
-        .simple-code .keyword { color: #d73a49; font-weight: 500; }
-        .simple-code .function { color: #6f42c1; }
-        .simple-code .string { color: #22863a; }
-        .simple-code .number { color: #005cc5; }
-        .simple-code .comment { color: #6a737d; font-style: italic; }
-        .simple-code .operator { color: #d73a49; }
-        .simple-code .type { color: #005cc5; font-weight: 500; }
-
-        .also-featuring {
-            background: #f9f9f9;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 2rem;
-            margin: 3rem 0;
-        }
-
-        .also-featuring h3 {
-            color: var(--primary);
-            margin-bottom: 1rem;
-        }
-
-        .also-featuring ul {
-            list-style: none;
-            padding-left: 0;
-        }
-
-        .also-featuring li {
-            padding: 0.4rem 0;
-            color: var(--text-light);
-        }
-
-        .also-featuring li::before {
-            content: "• ";
-            color: var(--primary);
-            font-weight: bold;
-            margin-right: 0.5rem;
-        }
-
-        /* Syntax Highlighting */
-        .keyword { color: #d73a49; font-weight: 500; }
-        .function { color: #6f42c1; }
-        .string { color: #22863a; }
-        .number { color: #005cc5; }
-        .comment { color: #6a737d; font-style: italic; }
-        .operator { color: #d73a49; }
-        .type { color: #005cc5; font-weight: 500; }
-
-        footer {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-light);
-            border-top: 1px solid var(--border);
-            margin-top: 4rem;
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2rem;
-            }
-
-            .feature-section {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .feature-icon {
-                text-align: left;
-            }
-
-            .code-example {
-                font-size: 0.85rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
@@ -308,9 +28,8 @@
             <a href="#" class="logo"><img src="images/cat.png" alt="Bern Logo" width="20%" style="margin-top: 10px;"></a>
             <nav>
                 <a href="#home">Home</a>
-                <a href="#learn">Learn</a>
-                <a href="#docs">Docs</a>
-                <a href="#download">Download</a>
+                <a href="documentation.html">Documentation</a>
+                <a href="#docs">Examples</a>
             </nav>
         </div>
     </header>
@@ -321,6 +40,27 @@
             <p class="subtitle">A functionally inspired language focused on <strong>expressiveness</strong>.</p>
             <pre style="background-color: rgb(232, 239, 241); border-radius: 10px; font-family: monospace; padding: 1rem; font-size: 18px; color: grey;">iex (irm https://mirvoxtm.github.io/Bern/install/install_bern.ps1)</pre>
             <p class="subtitle" style="font-size: 14px; margin-top: 14px;">Install with <b>PowerShell</b> using the command above.<br>Alternatively, install with <b>Bash</b> using <code>curl -fsSL https://mirvoxtm.github.io/Bern/install/install_bern.sh | bash</code></p>
+        </div>
+
+        
+                <div class="feature-section">
+            <div class="feature-icon">🔋</div>
+            <div class="feature-content">
+                <h2>Batteries Included</h2>
+                <p>The standard library offers a rich set of functions for data manipulation, I/O, and more, so you can get started quickly.</p>
+                <div class="code-example">
+                    <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8</div>
+                    <div class="code-content"><pre><code><span class="keyword">import</span> core
+<span class="keyword">import</span> random
+<span class="keyword">import</span> strings
+
+<span class="comment">-- This is actually a 'random' function that wraps a C binding!</span>
+<span class="function">text = random_choice</span>([<span class="string">'apple'</span>, <span class="string">'banana'</span>, <span class="string">'cherry'</span>])
+
+map(text, <span class="operator">\</span>c <span class="operator">-></span> <span class="function">char_to_upper</span>(c))</code></pre>
+    </div>
+                </div>
+            </div>
         </div>
 
         <div class="feature-section">
@@ -393,7 +133,7 @@ r = <span class="type">Rectangle</span>(<span class="number">3.0</span>, <span c
                 <p>Functions are values that can be passed around, returned, and composed. Lambda expressions make inline functions natural.</p>
                 <div class="code-example">
                     <div class="line-numbers">1<br>2<br>3<br>4<br>5<br>6<br>7<br>8</div>
-                    <div class="code-content"><pre><code><span class="keyword">import</span> core
+<div class="code-content"><pre><code><span class="keyword">import</span> core
 
 <span class="comment">// Higher-order function usage</span>
 <span class="function">map</span>([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>], <span class="operator">\</span>x <span class="operator">-></span> x <span class="operator">*</span> <span class="number">2</span>)
@@ -401,7 +141,7 @@ r = <span class="type">Rectangle</span>(<span class="number">3.0</span>, <span c
 <span class="comment">// Lambda expressions</span>
 inc = <span class="operator">\</span>x <span class="operator">-></span> x <span class="operator">+</span> <span class="number">1</span>
 <span class="function">applyTwice</span>(<span class="operator">\</span>n <span class="operator">-></span> n <span class="operator">*</span> <span class="number">2</span>, <span class="number">5</span>)</code></pre>
-                    </div>
+</div>
                 </div>
             </div>
         </div>
@@ -409,18 +149,18 @@ inc = <span class="operator">\</span>x <span class="operator">-></span> x <span 
         <div class="also-featuring">
             <h3>🌟 Also Featuring</h3>
             <ul>
-                <li>Range syntax for lists: <code>[1..10]</code></li>
-                <li>Set operations with union, intersection, and difference</li>
+                <li>Literals and expressions are evaluated and printed automatically (Evaluation implies output)</li>
+                <li>Range syntax <code>[1..10]</code> for lists</li>
+                <li>Set operations <code>&lt;&gt;</code>, <code>&lt;|</code>, <code>|&gt;</code>, <code>&lt;/&gt;</code> for lists and sets</li>
                 <li>Object/hashmap support with <code>#{key: value}#</code> syntax</li>
-                <li>List and set operations: <code>&lt;&gt;</code>, <code>&lt;|</code>, <code>|&gt;</code>, <code>&lt;/&gt;</code></li>
-                <li>Length operator: <code>:&gt;</code></li>
-                <li>Type conversion functions in core library</li>
-                <li>Clean, expressive syntax inspired by Haskell and Odin</li>
+                <li>Special operators for convecience such as <code>:&gt;</code>(length) and <code>::</code>(typeof)</li>
+                <li>Global functions for specified development (<code>write_file()</code>, <code>read_file()</code> and <code>get_host_machine()</code>)</li>
+                <li>Clean, expressive syntax inspired by Lua, Haskell and Odin</li>
             </ul>
         </div>
 
         <div class="doc-section" id="docs">
-            <h2>Documentation</h2>
+            <h2>Examples</h2>
             
             <h3>Basics</h3>
             <p>In Bern, literals are interpreted and printed automatically. Variables are defined with simple assignment.</p>
