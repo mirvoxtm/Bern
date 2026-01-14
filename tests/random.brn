@@ -1,0 +1,7 @@
+import random
+
+"get_random_int(): " + get_random_int()
+"get_random_double(): " + get_random_double()
+"get_random_number(): " + get_random_number()
+"get_random_choice(['apple', 'banana', 'cherry']): " + random_choice(["apple", "banana", "cherry"])
+"get_random_string(30): " + get_random_string(30)

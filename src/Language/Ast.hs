@@ -61,6 +61,7 @@ data Expression = Number Int
                 | LambdaExpr [Pattern] Expression
                 | WithPos SourcePos Expression        -- carries source position for better errors
                 | ReadFile Expression                 -- readfile filename
+                | GetHostMachine                      -- get_host_machine()
                 | Fmap Expression Expression          -- fmap collection function
                 deriving (Show, Eq)
 

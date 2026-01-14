@@ -205,6 +205,7 @@ parseBaseTerm = try parseObject
     <|> try parseBoolean
     <|> try parseList
     <|> try parseSet
+    <|> try parseGetHostMachine
     <|> try parseReadFile
     <|> try parseFmap
     <|> try parseFunctionCallOrVar
@@ -473,6 +474,13 @@ parseWriteFile = do
     contentExpr <- parseExpression
     return $ WriteFile filenameExpr contentExpr
 
+
+parseGetHostMachine :: Parser Expression
+parseGetHostMachine = do
+    _ <- try (symbol "get_host_machine")
+    _ <- symbolNoNl "("
+    _ <- symbolNoNl ")"
+    return GetHostMachine
 
 parseReadFile :: Parser Expression
 parseReadFile = do

@@ -2,11 +2,24 @@ import core
 
 -- Linux is 'libc.so.6' and 'libm.so.6' for C standard library and math library
 -- Windows would be 'msvcrt.dll' for C standard library functions
-cpath = "msvcrt.dll"
+
+def get_cpath() do
+    os = get_host_machine()
+    if os == "mingw32" then
+        return "msvcrt.dll"
+    else
+        return "libc.so.6"
+    end
+end
+
+cpath = get_cpath()
 
 -- Binding some functions from the C standard library and math library
 -- For testing (Linux systems with glibc)
 foreign strlen(cpath, "string") -> "int"
+
+-- Linux uses libm for math functions (so abstraction won't work for this example)
+-- But it's fine for demonstration purposes
 foreign abs(cpath, "int") -> "int"
 foreign sqrt(cpath, "double") -> "double"
 foreign pow(cpath, "double", "double") -> "double"

@@ -9,6 +9,7 @@ import System.FilePath (takeDirectory, (</>))
 import Language.Ast
 import Data.Hashtable.Hashtable
 import Language.Helpers
+import System.Info (os)
 import Parsing.Parser (parseBernFile)
 import Text.Megaparsec (errorBundlePretty, sourcePosPretty)
 import qualified Language.FFI as FFI
@@ -431,6 +432,10 @@ evaluate (ReadFile filenameExpr) table = do
             let contents = unsafePerformIO (readFile path)
             return (List (map Character contents) (length contents))
         Nothing -> Left "File path must be a string"
+
+evaluate GetHostMachine _ = 
+    let hostMachine = os
+    in Right (List (map Character hostMachine) (length hostMachine))
 
 -- Carry source position for better error reporting
 evaluate (WithPos pos expr) table =

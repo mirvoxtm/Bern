@@ -1,0 +1,62 @@
+def get_random_library_path() do
+    os = get_host_machine()
+    if os == "mingw64" || os == "mingw32" then
+        return "msvcrt.dll"
+    else
+        return "libc.so.6"
+    end
+end
+
+cpath = get_random_library_path()
+
+def get_seed() do
+    os = get_host_machine()
+    if os == "mingw64" || os == "mingw32" then
+        foreign GetTickCount("kernel32.dll") -> "int"
+        return GetTickCount()
+    else
+        foreign gettimeofday("libc.so.6", "int") -> "int"
+        return gettimeofday(0)
+    end
+end
+
+foreign rand(cpath) -> "int"
+foreign srand(cpath, "int") -> "void"
+foreign time(cpath, "int") -> "int"
+
+srand(get_seed())
+
+def get_random_int() do
+    return rand()
+end
+
+def get_random_double() do
+    max_int = 2147483647.0
+    rand_int = get_random_int()
+    return rand_int / max_int
+end
+
+def random_choice(choices) do
+    index = get_random_int() % (:> choices)
+    return choices[index]
+end
+
+def get_random_number() do
+    if random_choice([0, 1]) == 0 then
+        return get_random_int()
+    else
+        return get_random_double()
+    end
+end
+
+def get_random_string(length) do
+    chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    result = ""
+    i = 0
+    for i < length do
+        index = get_random_int() % (:> chars)
+        result = result + chars[index]
+        i = i + 1
+    end
+    return result
+end
