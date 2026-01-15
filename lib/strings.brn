@@ -2,10 +2,10 @@
 -- This module provides common string manipulation functions.
 import core
 
-def substring(s, start, end) do
+def substring(s, start, ends) do
     result = ""
     i = start
-    while (i < end && i < length(s)) do
+    for (i < ends && i < length(s)) do
         result = result + s[i]
         i = i + 1
     end
@@ -19,7 +19,7 @@ def split(s, delimiter) do
     current = ""
     delim_len = length(delimiter)
     i = 0
-    while (i < length(s)) do
+    for (i < length(s)) do
         if (substring(s, i, i + delim_len) == delimiter) then
             result = result <> [current]
             current = ""
@@ -96,11 +96,11 @@ def trim(s) do
     start = 0
     final = length(s) - 1
 
-    while (start <= final && (s[start] == ' ' || s[start] == '\n' || s[start] == '\t')) do
+    for (start <= final && (s[start] == ' ' || s[start] == '\n' || s[start] == '\t')) do
         start = start + 1
     end
 
-    while (final >= start && (s[final] == ' ' || s[final] == '\n' || s[final] == '\t')) do
+    for (final >= start && (s[final] == ' ' || s[final] == '\n' || s[final] == '\t')) do
         final = final - 1
     end
 
@@ -112,7 +112,7 @@ def contains(s, sub) do
     sub_len = length(sub)
 
     i = 0
-    while (i <= s_len - sub_len) do
+    for (i <= s_len - sub_len) do
         if (substring(s, i, i + sub_len) == sub) then
             return true
         end
@@ -126,7 +126,7 @@ def replace(s, old, new) do
     i = 0
     old_len = length(old)
 
-    while (i < length(s)) do
+    for (i < length(s)) do
         if (substring(s, i, i + old_len) == old) then
             result = result + new
             i = i + old_len
@@ -154,4 +154,17 @@ def ends_with(s, suffix) do
         return false
     end
     return substring(s, s_len - suffix_len, s_len) == suffix
+end
+
+def join(strings, delimiter) do
+    result = ""
+    idx = 0
+    for idx < (:> strings) do
+        result = result + strings[idx]
+        if (idx < (:> strings) - 1) then
+            result = result + delimiter
+        end
+        idx = idx + 1
+    end
+    return result
 end

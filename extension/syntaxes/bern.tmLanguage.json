@@ -50,7 +50,7 @@
     },
     "keyword": {
       "name": "keyword.control.bern",
-      "match": "\\b(def|return|if|else|then|for|do|end|while|repeat|print|import|let|is)\\b"
+      "match": "\\b(def|return|if|else|then|for|do|end|repeat|print|import|let|is)\\b"
     },
     "constant": {
       "name": "constant.language.bern",

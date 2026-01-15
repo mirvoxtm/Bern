@@ -108,11 +108,11 @@ def log(x) do
 	ln2 = 0.6931471805599453
 	two = 2.0
 	k = 0.0
-	while (x > two) do
+	for (x > two) do
 		x = x / two
 		k = k + 1.0
 	end
-	while (x < 0.5) do
+	for (x < 0.5) do
 		x = x * 2.0
 		k = k - 1.0
 	end
@@ -136,10 +136,10 @@ def log10(x) -> log(x) / 2.302585092994046
 def _wrapAngle(rad) do
 	rad = rad + 0.0
 	t = rad
-	while (t > pi) do
+	for (t > pi) do
 		t = t - tau
 	end
-	while (t < -pi) do
+	for (t < -pi) do
 		t = t + tau
 	end
 	return t

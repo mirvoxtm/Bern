@@ -2,3 +2,5 @@
 /dist-newstyle
 extension/CHANGELOG.md
 Bern.exe
+/lib/vendor/raylib
+/tests/ray.brn

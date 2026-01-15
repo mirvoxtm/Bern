@@ -46,7 +46,7 @@ runFile path = do
   case parseBernFile path contents of
     Left err -> putStrLn (errorBundlePretty err) >> exitFailure
     Right cmd -> do
-      _ <- interpretCommand cmd initialTable
+      _ <- interpretCommand Nothing cmd initialTable
       return ()
 
 repl :: Hashtable String Value -> IO ()
@@ -62,11 +62,11 @@ repl table = do
     else case parseBern line of
       Left err -> putStrLn (errorBundlePretty err) >> exitFailure
       Right cmd -> do
-        newTable <- interpretCommand cmd table
+        newTable <- interpretCommand Nothing cmd table
         repl newTable
 
 printEval :: Expression -> IO ()
 printEval expr =
   case evaluate expr initialTable of
     Right v  -> print (getValueOnly v)
-    Left err -> putStrLn ("Error: " ++ err)
+    Left err -> putStrLn ("Evaluation error: " ++ err)

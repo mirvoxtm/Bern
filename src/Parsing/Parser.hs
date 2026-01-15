@@ -206,6 +206,7 @@ parseBaseTerm = try parseObject
     <|> try parseList
     <|> try parseSet
     <|> try parseGetHostMachine
+    <|> try parseGetCurrentDir
     <|> try parseReadFile
     <|> try parseFmap
     <|> try parseFunctionCallOrVar
@@ -469,11 +470,13 @@ parseElseChain = try parseElseIf <|> parseElseOnly <|> parseNoElse
 
 parseWriteFile :: Parser Command
 parseWriteFile = do
-    _ <- symbol "writefile"
+    _ <- try (symbol "write_file")
+    _ <- symbolNoNl "("
     filenameExpr <- parseExpression
+    _ <- symbolNoNl ","
     contentExpr <- parseExpression
+    _ <- symbolNoNl ")"
     return $ WriteFile filenameExpr contentExpr
-
 
 parseGetHostMachine :: Parser Expression
 parseGetHostMachine = do
@@ -481,6 +484,13 @@ parseGetHostMachine = do
     _ <- symbolNoNl "("
     _ <- symbolNoNl ")"
     return GetHostMachine
+
+parseGetCurrentDir :: Parser Expression
+parseGetCurrentDir = do
+    _ <- try (symbol "get_current_dir")
+    _ <- symbolNoNl "("
+    _ <- symbolNoNl ")"
+    return GetCurrentDir
 
 parseReadFile :: Parser Expression
 parseReadFile = do
@@ -527,8 +537,8 @@ parseAlgebraicDataType = do
         , string "Bool"   >> return TBool
         , string "Char"   >> return TChar
         , string "String" >> return TString
-        , string "List"   >> return TList
-        , string "Set"    >> return TSet
+        , string "List"   >> return (TCustom "List")
+        , string "Set"    >> return (TCustom "Set")
         , do
             first <- letterChar <|> char '_'
             rest <- many (alphaNumChar <|> char '_')
@@ -566,9 +576,9 @@ parseForIn = do
         Just i  -> return $ ForInCount varName i collection body
         Nothing -> return $ ForIn varName collection body
 
-parseWhile :: Parser Command
-parseWhile = do
-    _ <- symbol "while"
+parseForCond :: Parser Command
+parseForCond = do
+    _ <- symbol "for"
     cond <- parseExpression
     _ <- symbol "do"
     cmd <- parseBlockCommands
@@ -577,6 +587,7 @@ parseWhile = do
 
 parseSingleCommand :: Parser Command
 parseSingleCommand = try parseCBinding
+               <|> try parseWriteFile
                <|> try parseAssignment
                <|> try parseImport
                <|> try parseFunctionDef
@@ -585,7 +596,7 @@ parseSingleCommand = try parseCBinding
                <|> try parseConditional
                <|> try parseForIn
                <|> try parseRepeat
-               <|> try parseWhile
+               <|> try parseForCond
                <|> try parseAlgebraicDataType
                <|> (Print <$> parseExpression)
 

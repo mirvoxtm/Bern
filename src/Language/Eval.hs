@@ -1,7 +1,7 @@
 module Language.Eval where
 import System.Exit (exitFailure)
 import System.IO.Unsafe (unsafePerformIO)
-import System.Directory (doesFileExist)
+import System.Directory (doesFileExist, getCurrentDirectory)
 import Data.Maybe (isJust)
 import Debug.Trace (trace)
 import System.Environment (getExecutablePath)
@@ -11,45 +11,43 @@ import Data.Hashtable.Hashtable
 import Language.Helpers
 import System.Info (os)
 import Parsing.Parser (parseBernFile)
-import Text.Megaparsec (errorBundlePretty, sourcePosPretty)
+import Text.Megaparsec (errorBundlePretty, sourcePosPretty, SourcePos)
 import qualified Language.FFI as FFI
+interpretCommand :: Maybe SourcePos -> Command -> Hashtable String Value -> IO (Hashtable String Value)
+interpretCommand mpos Skip table = return table
 
-interpretCommand :: Command -> Hashtable String Value -> IO (Hashtable String Value)
-interpretCommand Skip table = return table
-
-interpretCommand (Input varName promptExpr) table = do
+interpretCommand mpos (Input varName promptExpr) table = do
     promptVal <- case evaluate promptExpr table of
                     Right v -> case valueToString v of
                                   Just s  -> return s
-                                  Nothing -> die "Prompt must be a string"
-                    Left err -> die err
+                                  Nothing -> die (posPrefix mpos "Prompt must be a string")
+                    Left err -> die (posPrefix mpos err)
     putStr promptVal
     input <- getLine
     let newTable = insertHashtable table varName (List (map Character input) (length input))
     return newTable
 
-interpretCommand (WriteFile filePath contentExpr) table = do
+interpretCommand mpos (WriteFile filePath contentExpr) table = do
     pathVal <- case evaluate filePath table of
                     Right v -> case valueToString v of
                                   Just s  -> return s
-                                  Nothing -> die "File path must be a string"
-                    Left err -> die err
+                                  Nothing -> die (posPrefix mpos "File path must be a string")
+                    Left err -> die (posPrefix mpos err)
     contentVal <- case evaluate contentExpr table of
                     Right v -> case valueToString v of
                                   Just s  -> return s
-                                  Nothing -> die "Content must be a string"
-                    Left err -> die err
+                                  Nothing -> die (posPrefix mpos "Content must be a string")
+                    Left err -> die (posPrefix mpos err)
     writeFile pathVal contentVal
     return table
-    
 
-interpretCommand (Print expr) table =
+interpretCommand mpos (Print expr) table =
     case evaluate expr table of
         Right Undefined -> return table
         Right val -> putStrLn (prettyValue val) >> return table
-        Left err  -> die err
+        Left err  -> die (posPrefix mpos err)
 
-interpretCommand (Assign name expr) table =
+interpretCommand mpos (Assign name expr) table =
     case evaluate expr table of
         Right v@(Integer _)   -> return (insertHashtable table name v)
         Right v@(Double _)    -> return (insertHashtable table name v)
@@ -62,132 +60,170 @@ interpretCommand (Assign name expr) table =
         Right v@(Lambda _)    -> return (insertHashtable table name v)
         Right v@(AlgebraicDataType _ _) -> return (insertHashtable table name v)
         Right v@(CBinding _ _) -> return (insertHashtable table name v)
-        Right v@(Undefined)    -> die ("Undefined value in assignment at the provided function.")
         Right v@(NaN)          -> return (insertHashtable table name v)
-        Right v               -> die ("Unexpected value in assignment: " ++ show v)
-        Left err              -> die err
+        Right v               -> die (posPrefix mpos ("Unexpected value in assignment: " ++ show v ++ " at variable " ++ name ++ " in line " ++ maybe "unknown" sourcePosPretty mpos))
+        Left err              -> die (posPrefix mpos err)
 
-interpretCommand (AssignIndex name idxExprs expr) table = do
+interpretCommand mpos (AssignIndex name idxExprs expr) table = do
     baseVal <- case lookupHashtable table name of
                   Just v  -> return v
-                  Nothing -> die "Variable not found"
+                  Nothing -> die (posPrefix mpos "Variable not found")
     idxVals <- mapM (\ie -> case evaluate ie table of
                               Right (Integer n)      -> return (IdxInt n)
                               Right (Character c)    -> return (IdxKey [c])
                               Right l@(List _ _)     ->
                                   case valueToString l of
                                     Just s  -> return (IdxKey s)
-                                    Nothing -> die "Index must be integer or string (in case of objects)"
-                              Right _                -> die "Index must be integer or string (in case of objects)"
-                              Left err               -> die err) idxExprs
+                                    Nothing -> die (posPrefix mpos "Index must be integer or string (in case of objects)")
+                              Right _                -> die (posPrefix mpos "Index must be integer or string (in case of objects)")
+                              Left err               -> die (posPrefix mpos err)) idxExprs
     newVal <- case evaluate expr table of
                 Right v  -> return v
-                Left err -> die err
+                Left err -> die (posPrefix mpos err)
     case setAt idxVals newVal baseVal of
         Right updated -> return (insertHashtable table name updated)
-        Left err      -> die err
+        Left err      -> die (posPrefix mpos err)
 
-interpretCommand (Conditional cond thenCmd elseCmd) table =
+interpretCommand mpos (Conditional cond thenCmd elseCmd) table =
     case evaluate cond table of
-        Right (Boolean True)  -> interpretCommand thenCmd table
-        Right (Boolean False) -> interpretCommand elseCmd table
-        Right _               -> die "Condition must be boolean"
-        Left err              -> die err
+        Right (Boolean True)  -> interpretCommand mpos thenCmd table
+        Right (Boolean False) -> interpretCommand mpos elseCmd table
+        Right _               -> die (posPrefix mpos "Condition must be boolean")
+        Left err              -> die (posPrefix mpos err)
 
-interpretCommand (Repeat count cmd) table =
+interpretCommand mpos (Repeat count cmd) table =
     case evaluate count table of
         Right (Integer n) -> loop n table
-        Right _           -> die "Repeat count must be integer"
-        Left err          -> die err
+        Right _           -> die (posPrefix mpos "Repeat count must be integer")
+        Left err          -> die (posPrefix mpos err)
   where
     loop 0 t = return t
     loop k t = do
-        t' <- interpretCommand cmd t
+        t' <- interpretCommand mpos cmd t
         if hasReturn t'
             then return t'
             else loop (k-1) t'
 
-interpretCommand (While cond cmd) table =
+interpretCommand mpos (While cond cmd) table =
     let loop t =
             case evaluate cond t of
                 Right (Boolean True)  -> do
-                    t' <- interpretCommand cmd t
+                    t' <- interpretCommand mpos cmd t
                     if hasReturn t'
                         then return t'
                         else loop t'
                 Right (Boolean False) -> return t
-                Right _               -> die "While condition must be boolean"
-                Left err              -> die err
+                Right _               -> die (posPrefix mpos "While condition must be boolean")
+                Left err              -> die (posPrefix mpos err)
     in loop table
 
-interpretCommand (ForIn varName collection cmd) table =
+interpretCommand mpos (ForIn varName collection cmd) table =
     case evaluate collection table of
         Right coll ->
             case toIterable coll of
                 Right vals -> loop vals table
-                Left err   -> die err
-        Left err -> die err
+                Left err   -> die (posPrefix mpos err)
+        Left err -> die (posPrefix mpos err)
   where
     loop [] t = return t
     loop (v:vs) t = do
-        t' <- interpretCommand cmd (insertHashtable t varName v)
+        t' <- interpretCommand mpos cmd (insertHashtable t varName v)
         if hasReturn t'
             then return t'
             else loop vs t'
 
-interpretCommand (ForInCount varName idxName collection cmd) table =
+interpretCommand mpos (ForInCount varName idxName collection cmd) table =
     case evaluate collection table of
         Right coll ->
             case toIterable coll of
                 Right vals -> loop (zip vals [0..]) table
-                Left err   -> die err
-        Left err -> die err
+                Left err   -> die (posPrefix mpos err)
+        Left err -> die (posPrefix mpos err)
   where
     loop [] t = return t
     loop ((v,idx):rest) t = do
         let tWith = insertHashtable (insertHashtable t varName v) idxName (Integer idx)
-        t' <- interpretCommand cmd tWith
+        t' <- interpretCommand mpos cmd tWith
         if hasReturn t'
             then return t'
             else loop rest t'
 
-interpretCommand (FunctionDef name clause) table = do
+interpretCommand mpos (FunctionDef name clause) table = do
     let newFunc = case lookupHashtable table name of
                     Just (Function cs) -> Function (cs ++ [clause])
                     Just _             -> Function [clause]
                     Nothing            -> Function [clause]
     return (insertHashtable table name newFunc)
 
-interpretCommand (Return expr) table =
+interpretCommand mpos (Return expr) table =
     case evaluate expr table of
         Right v -> return (insertHashtable table "__return" v)
-        Left err -> die err
+        Left err -> die (posPrefix mpos err)
 
-interpretCommand (AlgebraicTypeDef (ADTDef typeName constructors)) table = do
+interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = do
     let adtVal = AlgebraicDataType typeName []
     let newTable = insertHashtable table typeName adtVal
     let tableWithCtors = foldl (\tbl (ADTConstructor ctorName _) ->
                                   insertHashtable tbl ctorName (Function [])) newTable constructors
+    
+    case constructors of
+        [ADTConstructor _ fieldTypes] -> do
+            let fieldTypeNames = map typeToString fieldTypes
+            let layout = createStructLayout typeName fieldTypeNames
+            FFI.registerStruct layout
+        _ -> return () 
+    
     return tableWithCtors
+  where
+    typeToString :: Type -> String
+    typeToString TInt = "Int"
+    typeToString TDouble = "Double"
+    typeToString TBool = "Bool"
+    typeToString TChar = "Char"
+    typeToString TString = "String"
+    typeToString TList = "List"
+    typeToString TSet = "Set"
+    typeToString (TCustom name) = name
+    
+    createStructLayout :: String -> [String] -> FFI.StructLayout
+    createStructLayout name types =
+        let fields = createFields types 0
+            totalSize = sum (map FFI.fieldSize fields)
+        in FFI.StructLayout name totalSize fields
+    
+    createFields :: [String] -> Int -> [FFI.FieldDef]
+    createFields [] _ = []
+    createFields (t:ts) offset =
+        let btype = typeStringToBernCType t
+            size = FFI.getFieldSize btype
+            field = FFI.FieldDef ("field" ++ show offset) btype offset size
+        in field : createFields ts (offset + size)
+    
+    typeStringToBernCType :: String -> FFI.BernCType
+    typeStringToBernCType "Int" = FFI.BernInt
+    typeStringToBernCType "Double" = FFI.BernDouble
+    typeStringToBernCType "Bool" = FFI.BernBool
+    typeStringToBernCType "Char" = FFI.BernChar
+    typeStringToBernCType _ = FFI.BernVoid
 
-interpretCommand (Import moduleName) table = do
+interpretCommand mpos (Import moduleName) table = do
     -- Get the executable path to find the installation directory
     execPath <- getExecutablePath
     let installDir = takeDirectory execPath
     let installLibPath = installDir </> "lib" </> moduleName ++ ".brn"
-    
+
     -- Try these paths in order:
     -- 1. lib/<name>.brn (relative to cwd)
     -- 2. <name>.brn (relative to cwd)
     -- 3. <install-dir>/lib/<name>.brn (installation directory)
     let localLibPath = "lib" </> moduleName ++ ".brn"
     let localPath = moduleName ++ ".brn"
-    
+
     -- Check each path in order
     localLibExists <- doesFileExist localLibPath
     localExists <- doesFileExist localPath
     installLibExists <- doesFileExist installLibPath
-    
+
     let path = if localLibExists 
                then localLibPath
                else if installLibExists
@@ -195,37 +231,42 @@ interpretCommand (Import moduleName) table = do
                     else if localExists
                          then localPath
                          else ""
-    
+
     if null path
-        then die ("Module not found: " ++ moduleName ++ " (searched in ./lib/, ./, and " ++ installDir </> "lib/)")
+        then die (posPrefix mpos ("Module not found: " ++ moduleName ++ " (searched in ./lib/, ./, and " ++ installDir </> "lib/)"))
         else do
             contents <- readFile path
             case parseBernFile path contents of
-                Left err -> die ("Parse error in module " ++ moduleName ++ ":\n" ++ errorBundlePretty err)
-                Right cmd -> interpretCommand cmd table
+                Left err -> do
+                    putStrLn $ errorBundlePretty err
+                    die (posPrefix mpos ("Parse error in module " ++ moduleName ++ ":\n" ++ errorBundlePretty err))
+                Right cmd -> do
+                    interpretCommand mpos cmd table
 
-interpretCommand (Concat cmd1 cmd2) table = do
-    table' <- interpretCommand cmd1 table
+interpretCommand mpos (Concat cmd1 cmd2) table = do
+    table' <- interpretCommand mpos cmd1 table
     if hasReturn table'
         then return table'
-        else interpretCommand cmd2 table'
+        else interpretCommand mpos cmd2 table'
 
-interpretCommand (CForeignDecl name libPath argTypes retType) table = do    
-    -- Evaluate the library path expression
+interpretCommand mpos (CForeignDecl name libPath argTypes retType) table = do    
     libPathVal <- case evaluate libPath table of
         Right v -> case valueToString v of
             Just s  -> return s
-            Nothing -> die "Library path must be a string or convertible to string"
-        Left err -> die err
+            Nothing -> die (posPrefix mpos "Library path must be a string or convertible to string")
+        Left err -> die (posPrefix mpos err)
 
-    -- Try to load the function from available libraries
     result <- tryLoadFromLibs [libPathVal] name argTypes retType
 
     case result of
-        Left err -> die $ "Failed to bind C function " ++ name ++ ": " ++ err
+        Left err -> die $ posPrefix mpos ("Failed to bind C function " ++ name ++ ": " ++ err)
         Right wrapper -> do
-            -- Store the C binding as a special function value
             return $ insertHashtable table name (CBinding name wrapper)
+
+-- Helper function to format source position prefix
+posPrefix :: Maybe SourcePos -> String -> String
+posPrefix (Just pos) msg = sourcePosPretty pos ++ ": " ++ msg
+posPrefix Nothing msg = msg
     
 tryLoadFromLibs :: [String] -> String -> [String] -> String -> IO (Either String ([Value] -> IO Value))
 tryLoadFromLibs [] funcName _ _ = 
@@ -255,7 +296,7 @@ applyClauses (Clause patterns body : rest) args table =
                 BodyExpr expr -> evaluate expr newTable
                 BodyBlock cmd ->
                     -- Run block and look for __return; fall back to Undefined
-                    let resultTable = unsafePerformIO (interpretCommand cmd newTable)
+                    let resultTable = unsafePerformIO (interpretCommand Nothing cmd newTable)
                     in case lookupHashtable resultTable "__return" of
                         Just v  -> Right v
                         Nothing -> Right Undefined
@@ -442,6 +483,10 @@ evaluate GetHostMachine _ =
     let hostMachine = os
     in Right (List (map Character hostMachine) (length hostMachine))
 
+evaluate GetCurrentDir _ =
+    let currentDir = unsafePerformIO (getCurrentDirectory)
+    in Right (List (map Character currentDir) (length currentDir))
+
 -- Carry source position for better error reporting
 evaluate (WithPos pos expr) table =
     case evaluate expr table of
@@ -450,7 +495,13 @@ evaluate (WithPos pos expr) table =
 
 evaluate (AlgebraicDataTypeConstruct typeName args) table = do
     argVals <- mapM (`evaluate` table) args
-    Right (AlgebraicDataType typeName argVals)
+    -- If the ADT is List, wrap in List constructor
+    if typeName == "List" then
+        Right (List argVals (length argVals))
+    else if typeName == "Set" then
+        Right (Set argVals (length argVals))
+    else
+        Right (AlgebraicDataType typeName argVals)
 
 -- If a Binary Operation is received, then
 evaluate (BinaryOperator op left right) table = do
