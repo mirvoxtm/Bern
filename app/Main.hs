@@ -69,4 +69,4 @@ printEval :: Expression -> IO ()
 printEval expr =
   case evaluate expr initialTable of
     Right v  -> print (getValueOnly v)
-    Left err -> putStrLn ("Evaluation error: " ++ err)
+    Left err -> putStrLn (formatError err)

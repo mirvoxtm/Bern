@@ -12,7 +12,49 @@ import Language.Helpers
 import System.Info (os)
 import Parsing.Parser (parseBernFile)
 import Text.Megaparsec (errorBundlePretty, sourcePosPretty, SourcePos)
+import Text.Megaparsec.Pos (sourceName, sourceLine, sourceColumn, unPos)
+import Data.List (isInfixOf)
 import qualified Language.FFI as FFI
+
+-- | Error type for better error messages
+data EvalError = EvalError
+    { errorPos :: Maybe SourcePos
+    , errorMsg :: String
+    , errorHint :: Maybe String
+    }
+
+-- | Format error message
+formatError :: EvalError -> String
+formatError (EvalError mpos msg mhint) =
+    let redBold = "\x1b[1;31m"
+        red = "\x1b[31m"
+        yellow = "\x1b[33m"
+        cyan = "\x1b[36m"
+        magenta = "\x1b[35m"
+        dim = "\x1b[2m"
+        reset = "\x1b[0m"
+        hintStr = case mhint of
+                    Just h -> "\n\n" ++ yellow ++ "Hint: " ++ reset ++ h
+                    Nothing -> ""
+    in case mpos of
+        Just pos ->
+            let fname = sourceName pos
+                ln = show (unPos (sourceLine pos))
+                col = show (unPos (sourceColumn pos))
+                header = redBold ++ "[bern]" ++ redBold ++ " An error was found while executing the script: " ++ reset ++ cyan ++ fname ++ reset
+                body = "Error" ++ reset ++ " at " ++ magenta ++ ln ++ ":" ++ col ++ reset ++ ": " ++ red ++ msg ++ reset
+            in header ++ "\n" ++ body ++ hintStr
+        Nothing ->
+            redBold ++ "Error: " ++ reset ++ red ++ msg ++ reset ++ hintStr
+
+-- | Create simple EvalError
+mkEvalError :: Maybe SourcePos -> String -> EvalError
+mkEvalError mpos msg = EvalError mpos msg Nothing
+
+-- | Create EvalError with hint
+mkEvalErrorHint :: Maybe SourcePos -> String -> String -> EvalError
+mkEvalErrorHint mpos msg hint = EvalError mpos msg (Just hint)
+
 interpretCommand :: Maybe SourcePos -> Command -> Hashtable String Value -> IO (Hashtable String Value)
 interpretCommand mpos Skip table = return table
 
@@ -20,8 +62,10 @@ interpretCommand mpos (Input varName promptExpr) table = do
     promptVal <- case evaluate promptExpr table of
                     Right v -> case valueToString v of
                                   Just s  -> return s
-                                  Nothing -> die (posPrefix mpos "Prompt must be a string")
-                    Left err -> die (posPrefix mpos err)
+                                  Nothing -> die (mkEvalErrorHint mpos 
+                                      "expected String for prompt"
+                                      "the prompt expression must evaluate to a string")
+                    Left err -> die err
     putStr promptVal
     input <- getLine
     let newTable = insertHashtable table varName (List (map Character input) (length input))
@@ -31,13 +75,17 @@ interpretCommand mpos (WriteFile filePath contentExpr) table = do
     pathVal <- case evaluate filePath table of
                     Right v -> case valueToString v of
                                   Just s  -> return s
-                                  Nothing -> die (posPrefix mpos "File path must be a string")
-                    Left err -> die (posPrefix mpos err)
+                                  Nothing -> die (mkEvalErrorHint mpos
+                                      "expected String for file path"
+                                      "file paths must be strings")
+                    Left err -> die err
     contentVal <- case evaluate contentExpr table of
                     Right v -> case valueToString v of
                                   Just s  -> return s
-                                  Nothing -> die (posPrefix mpos "Content must be a string")
-                    Left err -> die (posPrefix mpos err)
+                                  Nothing -> die (mkEvalErrorHint mpos
+                                      "expected String for file content"
+                                      "content to write must be a string")
+                    Left err -> die err
     writeFile pathVal contentVal
     return table
 
@@ -45,7 +93,7 @@ interpretCommand mpos (Print expr) table =
     case evaluate expr table of
         Right Undefined -> return table
         Right val -> putStrLn (prettyValue val) >> return table
-        Left err  -> die (posPrefix mpos err)
+        Left err  -> die err
 
 interpretCommand mpos (Assign name expr) table =
     case evaluate expr table of
@@ -61,41 +109,51 @@ interpretCommand mpos (Assign name expr) table =
         Right v@(AlgebraicDataType _ _) -> return (insertHashtable table name v)
         Right v@(CBinding _ _) -> return (insertHashtable table name v)
         Right v@(NaN)          -> return (insertHashtable table name v)
-        Right v               -> die (posPrefix mpos ("Unexpected value in assignment: " ++ show v ++ " at variable " ++ name ++ " in line " ++ maybe "unknown" sourcePosPretty mpos))
-        Left err              -> die (posPrefix mpos err)
+        Right v               -> die (mkEvalErrorHint mpos
+            ("cannot assign unexpected value to '" ++ name ++ "'")
+            ("value type: " ++ show v))
+        Left err              -> die err
 
 interpretCommand mpos (AssignIndex name idxExprs expr) table = do
     baseVal <- case lookupHashtable table name of
                   Just v  -> return v
-                  Nothing -> die (posPrefix mpos "Variable not found")
+                  Nothing -> die (mkEvalErrorHint mpos
+                      ("undefined variable '" ++ name ++ "'")
+                      "variables must be defined before indexing")
     idxVals <- mapM (\ie -> case evaluate ie table of
                               Right (Integer n)      -> return (IdxInt n)
                               Right (Character c)    -> return (IdxKey [c])
                               Right l@(List _ _)     ->
                                   case valueToString l of
                                     Just s  -> return (IdxKey s)
-                                    Nothing -> die (posPrefix mpos "Index must be integer or string (in case of objects)")
-                              Right _                -> die (posPrefix mpos "Index must be integer or string (in case of objects)")
-                              Left err               -> die (posPrefix mpos err)) idxExprs
+                                    Nothing -> die (mkEvalError mpos
+                                        "index must be Int or String")
+                              Right _                -> die (mkEvalError mpos
+                                        "index must be Int or String")
+                              Left err               -> die err) idxExprs
     newVal <- case evaluate expr table of
                 Right v  -> return v
-                Left err -> die (posPrefix mpos err)
+                Left err -> die err
     case setAt idxVals newVal baseVal of
         Right updated -> return (insertHashtable table name updated)
-        Left err      -> die (posPrefix mpos err)
+        Left err      -> die err
 
 interpretCommand mpos (Conditional cond thenCmd elseCmd) table =
     case evaluate cond table of
         Right (Boolean True)  -> interpretCommand mpos thenCmd table
         Right (Boolean False) -> interpretCommand mpos elseCmd table
-        Right _               -> die (posPrefix mpos "Condition must be boolean")
-        Left err              -> die (posPrefix mpos err)
+        Right v               -> die (mkEvalErrorHint mpos
+            "condition must be Bool"
+            ("found: " ++ getValueType v))
+        Left err              -> die err
 
 interpretCommand mpos (Repeat count cmd) table =
     case evaluate count table of
         Right (Integer n) -> loop n table
-        Right _           -> die (posPrefix mpos "Repeat count must be integer")
-        Left err          -> die (posPrefix mpos err)
+        Right v           -> die (mkEvalErrorHint mpos
+            "repeat count must be Int"
+            ("found: " ++ getValueType v))
+        Left err          -> die err
   where
     loop 0 t = return t
     loop k t = do
@@ -113,8 +171,10 @@ interpretCommand mpos (While cond cmd) table =
                         then return t'
                         else loop t'
                 Right (Boolean False) -> return t
-                Right _               -> die (posPrefix mpos "While condition must be boolean")
-                Left err              -> die (posPrefix mpos err)
+                Right v               -> die (mkEvalErrorHint mpos
+                    "while condition must be Bool"
+                    ("found: " ++ getValueType v))
+                Left err              -> die err
     in loop table
 
 interpretCommand mpos (ForIn varName collection cmd) table =
@@ -122,8 +182,8 @@ interpretCommand mpos (ForIn varName collection cmd) table =
         Right coll ->
             case toIterable coll of
                 Right vals -> loop vals table
-                Left err   -> die (posPrefix mpos err)
-        Left err -> die (posPrefix mpos err)
+                Left err   -> die err
+        Left err -> die err
   where
     loop [] t = return t
     loop (v:vs) t = do
@@ -137,8 +197,8 @@ interpretCommand mpos (ForInCount varName idxName collection cmd) table =
         Right coll ->
             case toIterable coll of
                 Right vals -> loop (zip vals [0..]) table
-                Left err   -> die (posPrefix mpos err)
-        Left err -> die (posPrefix mpos err)
+                Left err   -> die err
+        Left err -> die err
   where
     loop [] t = return t
     loop ((v,idx):rest) t = do
@@ -158,7 +218,7 @@ interpretCommand mpos (FunctionDef name clause) table = do
 interpretCommand mpos (Return expr) table =
     case evaluate expr table of
         Right v -> return (insertHashtable table "__return" v)
-        Left err -> die (posPrefix mpos err)
+        Left err -> die err
 
 interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = do
     let adtVal = AlgebraicDataType typeName []
@@ -207,19 +267,12 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = 
     typeStringToBernCType _ = FFI.BernVoid
 
 interpretCommand mpos (Import moduleName) table = do
-    -- Get the executable path to find the installation directory
     execPath <- getExecutablePath
     let installDir = takeDirectory execPath
     let installLibPath = installDir </> "lib" </> moduleName ++ ".brn"
-
-    -- Try these paths in order:
-    -- 1. lib/<name>.brn (relative to cwd)
-    -- 2. <name>.brn (relative to cwd)
-    -- 3. <install-dir>/lib/<name>.brn (installation directory)
     let localLibPath = "lib" </> moduleName ++ ".brn"
     let localPath = moduleName ++ ".brn"
 
-    -- Check each path in order
     localLibExists <- doesFileExist localLibPath
     localExists <- doesFileExist localPath
     installLibExists <- doesFileExist installLibPath
@@ -233,13 +286,17 @@ interpretCommand mpos (Import moduleName) table = do
                          else ""
 
     if null path
-        then die (posPrefix mpos ("Module not found: " ++ moduleName ++ " (searched in ./lib/, ./, and " ++ installDir </> "lib/)"))
+        then die (mkEvalErrorHint mpos
+            ("module '" ++ moduleName ++ "' not found")
+            ("searched in: ./lib/, ./, and " ++ installDir </> "lib/"))
         else do
             contents <- readFile path
             case parseBernFile path contents of
                 Left err -> do
                     putStrLn $ errorBundlePretty err
-                    die (posPrefix mpos ("Parse error in module " ++ moduleName ++ ":\n" ++ errorBundlePretty err))
+                    die (mkEvalErrorHint mpos
+                        ("failed to parse module '" ++ moduleName ++ "'")
+                        "see parse errors above")
                 Right cmd -> do
                     interpretCommand mpos cmd table
 
@@ -253,24 +310,21 @@ interpretCommand mpos (CForeignDecl name libPath argTypes retType) table = do
     libPathVal <- case evaluate libPath table of
         Right v -> case valueToString v of
             Just s  -> return s
-            Nothing -> die (posPrefix mpos "Library path must be a string or convertible to string")
-        Left err -> die (posPrefix mpos err)
+            Nothing -> die (mkEvalError mpos "library path must be String")
+        Left err -> die err
 
     result <- tryLoadFromLibs [libPathVal] name argTypes retType
 
     case result of
-        Left err -> die $ posPrefix mpos ("Failed to bind C function " ++ name ++ ": " ++ err)
+        Left err -> die (mkEvalErrorHint mpos
+            ("failed to bind C function '" ++ name ++ "'")
+            err)
         Right wrapper -> do
             return $ insertHashtable table name (CBinding name wrapper)
-
--- Helper function to format source position prefix
-posPrefix :: Maybe SourcePos -> String -> String
-posPrefix (Just pos) msg = sourcePosPretty pos ++ ": " ++ msg
-posPrefix Nothing msg = msg
     
 tryLoadFromLibs :: [String] -> String -> [String] -> String -> IO (Either String ([Value] -> IO Value))
 tryLoadFromLibs [] funcName _ _ = 
-    return $ Left $ "Could not find function " ++ funcName ++ " in any library"
+    return $ Left $ "function not found in any library"
 tryLoadFromLibs [libPath] funcName argTypes retType = do
     FFI.loadCFunction libPath funcName argTypes retType
 tryLoadFromLibs (libPath:rest) funcName argTypes retType = do
@@ -280,31 +334,33 @@ tryLoadFromLibs (libPath:rest) funcName argTypes retType = do
         Left _ -> tryLoadFromLibs rest funcName argTypes retType
         
 -- Apply a function or lambda value to arguments
-applyFunction :: Value -> [Value] -> Hashtable String Value -> Either String Value
+applyFunction :: Value -> [Value] -> Hashtable String Value -> Either EvalError Value
 applyFunction (Function clauses) args table = applyClauses clauses args table
 applyFunction (Lambda clauses) args table = applyClauses clauses args table
-applyFunction _ _ _ = Left "Called value is not a function"
+applyFunction v _ _ = Left $ mkEvalError Nothing ("expected function, found " ++ getValueType v)
 
-applyClauses :: [Clause] -> [Value] -> Hashtable String Value -> Either String Value
-applyClauses [] _ _ = Left "No matching function clause"
+applyClauses :: [Clause] -> [Value] -> Hashtable String Value -> Either EvalError Value
+applyClauses [] args _ = Left $ mkEvalError Nothing ("no matching pattern for " ++ show (length args) ++ " argument(s)")
 applyClauses (Clause patterns body : rest) args table =
     case matchAll patterns args of
         Nothing -> applyClauses rest args table
         Just bindings ->
             let newTable = foldl (\tbl (k,v) -> insertHashtable tbl k v) table bindings
             in case body of
-                BodyExpr expr -> evaluate expr newTable
-                BodyBlock cmd ->
-                    -- Run block and look for __return; fall back to Undefined
-                    let resultTable = unsafePerformIO (interpretCommand Nothing cmd newTable)
-                    in case lookupHashtable resultTable "__return" of
-                        Just v  -> Right v
-                        Nothing -> Right Undefined
+                        BodyExpr expr -> evaluate expr newTable
+                        BodyBlock cmd ->
+                            let resultTable = unsafePerformIO (interpretCommand Nothing cmd newTable)
+                            in case lookupHashtable resultTable "__return" of
+                                Just v  -> Right v
+                                Nothing -> Right Undefined
+
+len :: [a] -> Int
+len = length
 
 -- Match argument list against pattern list, returning bindings if successful
 matchAll :: [Pattern] -> [Value] -> Maybe [(String, Value)]
 matchAll ps vs
-    | length ps /= length vs = Nothing
+    | length ps /= len vs = Nothing
     | otherwise = fmap concat (sequence (zipWith matchOne ps vs))
 
 matchOne :: Pattern -> Value -> Maybe [(String, Value)]
@@ -317,82 +373,60 @@ matchOne (PChar c) (Character d) | c == d = Just []
 matchOne (PADT typeName pats) (AlgebraicDataType valType vals)
     | typeName == valType && length pats == length vals = matchAll pats vals
     | otherwise = Nothing
-matchOne (PString s) (List vs _) | allCharacter vs && map (
-    \(Character c) -> c) vs == s = Just []
-
--- List pattern: match empty list [] or list of patterns [a, b, c]
+matchOne (PString s) (List vs _) | allCharacter vs && map (\(Character c) -> c) vs == s = Just []
 matchOne (PList []) (List [] _) = Just []
 matchOne (PList pats) (List vals _)
     | length pats == length vals = matchAll pats vals
     | otherwise = Nothing
-
--- Cons pattern: [head|tail] matches non-empty list
 matchOne (PCons headPat tailPat) (List (v:vs) _) = do
     headBindings <- matchOne headPat v
     tailBindings <- matchOne tailPat (List vs (length vs))
     return (headBindings ++ tailBindings)
-matchOne (PCons _ _) (List [] _) = Nothing  -- Can't match cons on empty list
-
--- Set pattern: match empty set {} or set of patterns {a, b, c}
+matchOne (PCons _ _) (List [] _) = Nothing
 matchOne (PSet []) (Set [] _) = Just []
 matchOne (PSet pats) (Set vals _)
     | length pats == length vals = matchAll pats vals
     | otherwise = Nothing
-
--- Set cons pattern: {head|tail} matches non-empty set
 matchOne (PSetCons headPat tailPat) (Set (v:vs) _) = do
     headBindings <- matchOne headPat v
     tailBindings <- matchOne tailPat (Set vs (length vs))
     return (headBindings ++ tailBindings)
-matchOne (PSetCons _ _) (Set [] _) = Nothing  -- Can't match cons on empty set
-
+matchOne (PSetCons _ _) (Set [] _) = Nothing
 matchOne _ _ = Nothing
 
 hasReturn :: Hashtable String Value -> Bool
 hasReturn tbl = isJust (lookupHashtable tbl "__return")
 
--- Fatal error helper
-die :: String -> IO a
-die msg = putStrLn ("Error: " ++ msg) >> exitFailure
+-- | Fatal error helper now accepts structured `EvalError`.
+die :: EvalError -> IO a
+die evalErr = putStrLn (formatError evalErr) >> exitFailure
 
 -- Convert iterable values (list, set, text) to a list of values for for-in loops
-toIterable :: Value -> Either String [Value]
+toIterable :: Value -> Either EvalError [Value]
 toIterable (List vals _) = Right vals
 toIterable (Set vals _)  = Right vals
 toIterable v@(List _ _) | Just s <- valueToString v = Right (map Character s)
-toIterable _             = Left "Cannot iterate over this type"
+toIterable v = Left $ mkEvalError Nothing ("cannot iterate over " ++ getValueType v)
 
--- Our 'evaluate' function receives an Expression and a Hashtable (for variables)
-evaluate :: Expression -> Hashtable String Value -> Either String Value
--- If a Number is received, then it is itself.
-evaluate (Number n) _ = (Right (Integer n))
-
-evaluate (DoubleNum d) _ = (Right (Double d))
-
--- Boolean literal
+evaluate :: Expression -> Hashtable String Value -> Either EvalError Value
+evaluate (Number n) _ = Right (Integer n)
+evaluate (DoubleNum d) _ = Right (Double d)
 evaluate (BoolLiteral b) _ = Right (Boolean b)
-
--- String literal
 evaluate (StringLiteral s) _ = Right (List (map Character s) (length s))
-
--- Character literal
 evaluate (CharLiteral c) _ = Right (Character c)
 
--- List literal - all elements must be the same type
 evaluate (ListLiteral exprs) table = do
     vals <- mapM (`evaluate` table) exprs
     if null vals 
         then Right (List [] 0)
         else if allSameType vals
             then Right (List vals (length vals))
-            else Left "Type error: List elements must all be the same type"
+            else Left $ mkEvalError Nothing "list elements must have the same type"
 
--- Set literal - elements can be of any type
 evaluate (SetLiteral exprs) table = do
     vals <- mapM (`evaluate` table) exprs
     Right (Set vals (length vals))
 
--- Range literal [start .. end]
 evaluate (Range start end) table = do
     s <- evaluate start table
     e <- evaluate end table
@@ -415,9 +449,8 @@ evaluate (Range start end) table = do
                 step = if s' <= e'' then 1 else -1
                 vals = [Double i | i <- [s', s'+step .. e'']]
             in Right (List vals (length vals))
-        _ -> Left "Type error: range bounds must be numeric"
+        _ -> Left $ mkEvalError Nothing "range bounds must be numeric"
 
--- Fmap expression: fmap collection function
 evaluate (Fmap coll func) table = do
     collection <- evaluate coll table
     functionVal <- evaluate func table
@@ -431,53 +464,47 @@ evaluate (Fmap coll func) table = do
         Set vals len -> do
             newVals <- mapM (\v -> applyFunction functionVal [v] table) vals
             Right (Set newVals len)
-        _ -> Left "fmap() function can only be applied to ADTs, lists, or sets"
+        _ -> Left $ mkEvalError Nothing ("fmap requires List, Set, or ADT, found " ++ getValueType collection)
  
--- Index access: list[i], string[i], set[i], object["key"]
 evaluate (Index expr idxExpr) table = do
     collection <- evaluate expr table
     idx <- evaluate idxExpr table
     case (collection, idx) of
         (List vals len, Integer i) 
             | i >= 0 && i < len -> Right (vals !! i)
-            | otherwise -> Left ("Index out of bounds: " ++ show i)
+            | otherwise -> Left $ mkEvalError Nothing ("index " ++ show i ++ " out of bounds (length " ++ show len ++ ")")
         (Set vals len, Integer i)
             | i >= 0 && i < len -> Right (vals !! i)
-            | otherwise -> Left ("Index out of bounds: " ++ show i)
+            | otherwise -> Left $ mkEvalError Nothing ("index " ++ show i ++ " out of bounds (length " ++ show len ++ ")")
         (Object kvs, lst@(List _ _)) ->
             case valueToString lst of
                 Just key -> case lookup key kvs of
                                 Just v  -> Right v
-                                Nothing -> Left ("Key not found: " ++ key)
-                Nothing -> Left "Index must be integer or string (in case of objects)"
+                                Nothing -> Left $ mkEvalError Nothing ("key '" ++ key ++ "' not found")
+                Nothing -> Left $ mkEvalError Nothing "object index must be String"
         (Object kvs, Integer i) ->
             let key = show i in
             case lookup key kvs of
                 Just v  -> Right v
-                Nothing -> Left ("Key not found: " ++ key)
+                Nothing -> Left $ mkEvalError Nothing ("key '" ++ key ++ "' not found")
         (Object kvs, Character c) ->
             case lookup [c] kvs of
                 Just v  -> Right v
-                Nothing -> Left ("Key not found: " ++ [c])
-        _ -> Left "Cannot index this type or invalid index"
+                Nothing -> Left $ mkEvalError Nothing ("key '" ++ [c] ++ "' not found")
+        _ -> Left $ mkEvalError Nothing ("cannot index " ++ getValueType collection ++ " with " ++ getValueType idx)
 
--- If a Variable name is received, then
 evaluate (Variable name) table =
-    -- Check if the name of the variable is on the Hashtable
     case lookupHashtable table name of
-        -- If it is, then it is itself
         Just val -> Right val
-        -- Otherwise, this variable was not defined.
         Nothing  -> Right Undefined
 
--- Read a file (not a command but an expression)
 evaluate (ReadFile filenameExpr) table = do
     pathVal <- evaluate filenameExpr table
     case valueToString pathVal of
         Just path -> do
             let contents = unsafePerformIO (readFile path)
             return (List (map Character contents) (length contents))
-        Nothing -> Left "File path must be a string"
+        Nothing -> Left $ mkEvalError Nothing "file path must be String"
 
 evaluate GetHostMachine _ = 
     let hostMachine = os
@@ -487,15 +514,16 @@ evaluate GetCurrentDir _ =
     let currentDir = unsafePerformIO (getCurrentDirectory)
     in Right (List (map Character currentDir) (length currentDir))
 
--- Carry source position for better error reporting
 evaluate (WithPos pos expr) table =
     case evaluate expr table of
-        Left err -> Left (sourcePosPretty pos ++ ": " ++ err)
+        Left err ->
+            case errorPos err of
+                Nothing -> Left (err { errorPos = Just pos })
+                Just _  -> Left err
         Right v  -> Right v
 
 evaluate (AlgebraicDataTypeConstruct typeName args) table = do
     argVals <- mapM (`evaluate` table) args
-    -- If the ADT is List, wrap in List constructor
     if typeName == "List" then
         Right (List argVals (length argVals))
     else if typeName == "Set" then
@@ -503,9 +531,7 @@ evaluate (AlgebraicDataTypeConstruct typeName args) table = do
     else
         Right (AlgebraicDataType typeName argVals)
 
--- If a Binary Operation is received, then
 evaluate (BinaryOperator op left right) table = do
-    -- Evaluate Left and Right until atom value
     leftVal <- evaluate left table
     rightVal <- evaluate right table
     if isArithmetic op
@@ -514,11 +540,8 @@ evaluate (BinaryOperator op left right) table = do
             then evalUnion op leftVal rightVal
             else evalComparison op leftVal rightVal
 
--- If a Unary Operation is received, then
 evaluate (UnaryOperator op expr) table = do
-    -- Evaluate the expression until atom
     val <- evaluate expr table
-    -- Call evalUnaryOp when value is fully found.
     evalUnaryOp op val
 
 evaluate (ObjectLiteral kvExprs) table = do
@@ -546,11 +569,10 @@ evaluate (FunctionCall name args) table =
             case sequence (map (`evaluate` table) args) of
                 Left err -> Left err
                 Right vals -> applyFunction v vals table
-        Nothing -> Left "Function not found"
+        Nothing -> Left $ mkEvalError Nothing ("undefined function with name '" ++ name ++ "'")
 
-evaluate _ _ = Left "Unsupported Expression"
+evaluate _ _ = Left $ mkEvalError Nothing "unsupported expression"
 
--- Check if said Binary Operation is Arithmetic
 isArithmetic :: BinaryOperation -> Bool
 isArithmetic Add = True
 isArithmetic Subtract = True
@@ -566,14 +588,11 @@ isUnion Intersection = True
 isUnion Difference = True
 isUnion _ = False
 
--- This function evaluates Binary Operations with a Left and Right value
-evalArith :: BinaryOperation -> Value -> Value -> Either String Value
--- (x + y)
+evalArith :: BinaryOperation -> Value -> Value -> Either EvalError Value
 evalArith Add (Integer l) (Integer r) = Right (Integer (l + r))
 evalArith Add (Double l) (Double r) = Right (Double (l + r))
 evalArith Add (Integer l) (Double r) = Right (Double (fromIntegral l + r))
 evalArith Add (Double l) (Integer r) = Right (Double (l + fromIntegral r))
--- String-like (lists of chars) must come before numeric list cases
 evalArith Add l1@(List _ _) l2@(List _ _)
     | Just s1 <- valueToString l1
     , Just s2 <- valueToString l2
@@ -596,7 +615,6 @@ evalArith Add l@(List _ _) (Double r)
 evalArith Add (Double l) r@(List _ _)
     | Just s <- valueToString r
     = let sl = show l in Right (List (map Character (sl ++ s)) (length sl + length s))
--- Map scalar addition over list elements (numeric lists)
 evalArith Add (List vals len) scalar@(Integer _) = do
     vals' <- mapM (numericAdd scalar) vals
     Right (List vals' len)
@@ -609,23 +627,18 @@ evalArith Add scalar@(Integer _) (List vals len) = do
 evalArith Add scalar@(Double _) (List vals len) = do
     vals' <- mapM (numericAdd scalar) vals
     Right (List vals' len)
-
--- On the case of lists, if the lists are of the same size, then apply the sum
--- of each element (strictly of same type)
 evalArith Add (List l1 len1) (List l2 len2) =
     if len1 /= len2
-        then Left "Type error: list arithmetic requires lists of the same length"
+        then Left $ mkEvalError Nothing ("cannot add lists of different lengths (" ++ show len1 ++ " and " ++ show len2 ++ ")")
         else let combined = zipWith numericAdd l1 l2
              in if all isRight combined
                    then Right (List (map fromRight combined) len1)
-                   else Left "Type error: list arithmetic requires numeric elements"
+                   else Left $ mkEvalError Nothing "list addition requires numeric elements"
   where
     isRight (Right _) = True
     isRight _        = False
     fromRight (Right v) = v
     fromRight _         = error "Unexpected Left value"
-
--- Concatenation of List (String) with ADT (converted to string)
 evalArith Add l@(List _ _) r@(AlgebraicDataType name vals)
     | Just s <- valueToString l
     = let sADT = prettyValue r
@@ -634,57 +647,48 @@ evalArith Add l@(AlgebraicDataType name vals) r@(List _ _)
     | Just s <- valueToString r
     = let sADT = prettyValue l
       in Right (List (map Character (sADT ++ s)) (length sADT + length s))
-
 evalArith Add (Set s1 len1) v =
     if v `elem` s1
         then Right (Set s1 len1)
         else Right (Set (s1 ++ [v]) (len1 + 1))
 
-
--- (x - y)
 evalArith Subtract (Integer l) (Integer r) = Right (Integer (l - r))
 evalArith Subtract (Double l) (Double r) = Right (Double (l - r))
 evalArith Subtract (Integer l) (Double r) = Right (Double (fromIntegral l - r))
 evalArith Subtract (Double l) (Integer r) = Right (Double (l - fromIntegral r))
--- Map scalar subtraction over list elements (element - scalar)
 evalArith Subtract (List vals len) scalar@(Integer _) = do
     vals' <- mapM (\v -> numericSub v scalar) vals
     Right (List vals' len)
 evalArith Subtract (List vals len) scalar@(Double _) = do
     vals' <- mapM (\v -> numericSub v scalar) vals
     Right (List vals' len)
--- scalar - list (scalar minus each element)
 evalArith Subtract scalar@(Integer _) (List vals len) = do
     vals' <- mapM (numericSub scalar) vals
     Right (List vals' len)
 evalArith Subtract scalar@(Double _) (List vals len) = do
     vals' <- mapM (numericSub scalar) vals
     Right (List vals' len)
-
 evalArith Subtract (List l1 len1) (List l2 len2) =
     if len1 /= len2
-        then Left "Type error: list arithmetic requires lists of the same length"
+        then Left $ mkEvalError Nothing ("cannot subtract lists of different lengths (" ++ show len1 ++ " and " ++ show len2 ++ ")")
         else let combined = zipWith numericSub l1 l2
              in if all isRight combined
                    then Right (List (map fromRight combined) len1)
-                   else Left "Type error: list arithmetic requires numeric elements"
+                   else Left $ mkEvalError Nothing "list subtraction requires numeric elements"
   where
     isRight (Right _) = True
     isRight _        = False
     fromRight (Right v) = v
     fromRight _         = error "Unexpected Left value"
-
 evalArith Subtract (Set s1 len1) v =
     if v `elem` s1
         then Right (Set (filter (/= v) s1) (len1 - 1))
         else Right (Set s1 len1)
 
--- (x * y)
 evalArith Multiply (Integer l) (Integer r) = Right (Integer (l * r))
 evalArith Multiply (Double l) (Double r) = Right (Double (l * r))
 evalArith Multiply (Integer l) (Double r) = Right (Double (fromIntegral l * r))
 evalArith Multiply (Double l) (Integer r) = Right (Double (l * fromIntegral r))
--- Map scalar multiplication over list elements
 evalArith Multiply (List vals len) scalar@(Integer _) = do
     vals' <- mapM (numericMul scalar) vals
     Right (List vals' len)
@@ -697,52 +701,31 @@ evalArith Multiply scalar@(Integer _) (List vals len) = do
 evalArith Multiply scalar@(Double _) (List vals len) = do
     vals' <- mapM (numericMul scalar) vals
     Right (List vals' len)
-
 evalArith Multiply (List l1 len1) (List l2 len2) =
     if len1 /= len2
-        then Left "Type error: list arithmetic requires lists of the same length"
+        then Left $ mkEvalError Nothing ("cannot multiply lists of different lengths (" ++ show len1 ++ " and " ++ show len2 ++ ")")
         else let combined = zipWith numericMul l1 l2
              in if all isRight combined
                    then Right (List (map fromRight combined) len1)
-                   else Left "Type error: list arithmetic requires numeric elements"
+                   else Left $ mkEvalError Nothing "list multiplication requires numeric elements"
   where
     isRight (Right _) = True
     isRight _        = False
     fromRight (Right v) = v
     fromRight _         = error "Unexpected Left value"
 
--- (x / y)
 evalArith Divide (Integer l) (Integer r)
-    -- Not A Number when attempting to divide by Zero
     | r == 0    = Right NaN
     | otherwise = Right (Integer (l `div` r))
-
 evalArith Divide (Double l) (Double r)
-    -- Not A Number when attempting to divide by Zero
     | r == 0.0  = Right NaN
     | otherwise = Right (Double (l / r))
-
 evalArith Divide (Integer l) (Double r)
-    -- Not A Number when attempting to divide by Zero
     | r == 0.0  = Right NaN
     | otherwise = Right (Double (fromIntegral l / r))
-
 evalArith Divide (Double l) (Integer r)
-    -- Not A Number when attempting to divide by Zero
     | r == 0    = Right NaN
     | otherwise = Right (Double (l / fromIntegral r))
--- (x % y)
-evalArith Modulo (Integer l) (Integer r)
-    | r == 0    = Right NaN
-    | otherwise = Right (Integer (l `mod` r))
-evalArith Modulo _ _ = Left "Type error: modulo requires integers"
--- (x % y)
-evalArith Modulo (Integer l) (Integer r)
-    | r == 0    = Right NaN
-    | otherwise = Right (Integer (l `mod` r))
-evalArith Modulo _ _ = Left "Type error: modulo requires integers"
-
--- Map scalar division over list elements
 evalArith Divide (List vals len) scalar@(Integer r)
     | r == 0 = Right (List (replicate len NaN) len)
     | otherwise = do
@@ -759,14 +742,13 @@ evalArith Divide scalar@(Integer _) (List vals len) = do
 evalArith Divide scalar@(Double _) (List vals len) = do
     vals' <- mapM (numericDivLeft scalar) vals
     Right (List vals' len)
-
 evalArith Divide (List l1 len1) (List l2 len2) =
     if len1 /= len2
-        then Left "Type error: list arithmetic requires lists of the same length"
+        then Left $ mkEvalError Nothing ("cannot divide lists of different lengths (" ++ show len1 ++ " and " ++ show len2 ++ ")")
         else let combined = zipWith numericDiv l1 l2
              in if all isRight combined
                    then Right (List (map fromRight combined) len1)
-                   else Left "Type error: list arithmetic requires numeric elements"
+                   else Left $ mkEvalError Nothing "list division requires numeric elements"
   where
     isRight (Right _) = True
     isRight _        = False
@@ -776,51 +758,46 @@ evalArith Divide (List l1 len1) (List l2 len2) =
 evalArith Modulo (Integer l) (Integer r)
     | r == 0    = Right NaN
     | otherwise = Right (Integer (l `mod` r))
-
 evalArith Modulo (Double l) (Double r)
     | r == 0.0  = Right NaN
     | otherwise = Right (Double (mod' l r))
   where
     mod' x y = x - y * fromIntegral (floor (x / y))
-
 evalArith Modulo (Integer l) (Double r)
     | r == 0.0  = Right NaN
     | otherwise = Right (Double (mod' (fromIntegral l) r))
   where
     mod' x y = x - y * fromIntegral (floor (x / y))
-
 evalArith Modulo (Double l) (Integer r)
     | r == 0    = Right NaN
     | otherwise = Right (Double (mod' l (fromIntegral r)))
   where
     mod' x y = x - y * fromIntegral (floor (x / y))
 
--- Unsupported types for arithmetic operations
-evalArith _ _ _ = Left "Type error in arithmetic operation"
+evalArith op l r = Left $ mkEvalError Nothing ("cannot apply " ++ show op ++ " to " ++ getValueType l ++ " and " ++ getValueType r)
 
--- Numeric helpers
-numericAdd :: Value -> Value -> Either String Value
+numericAdd :: Value -> Value -> Either EvalError Value
 numericAdd (Integer l) (Integer r) = Right (Integer (l + r))
 numericAdd (Double l) (Double r) = Right (Double (l + r))
 numericAdd (Integer l) (Double r) = Right (Double (fromIntegral l + r))
 numericAdd (Double l) (Integer r) = Right (Double (l + fromIntegral r))
-numericAdd _ _ = Left "Type error: list arithmetic requires numeric elements"
+numericAdd _ _ = Left $ mkEvalError Nothing "numeric operation requires Int or Double"
 
-numericSub :: Value -> Value -> Either String Value
+numericSub :: Value -> Value -> Either EvalError Value
 numericSub (Integer l) (Integer r) = Right (Integer (l - r))
 numericSub (Double l) (Double r) = Right (Double (l - r))
 numericSub (Integer l) (Double r) = Right (Double (fromIntegral l - r))
 numericSub (Double l) (Integer r) = Right (Double (l - fromIntegral r))
-numericSub _ _ = Left "Type error: list arithmetic requires numeric elements"
+numericSub _ _ = Left $ mkEvalError Nothing "numeric operation requires Int or Double"
 
-numericMul :: Value -> Value -> Either String Value
+numericMul :: Value -> Value -> Either EvalError Value
 numericMul (Integer l) (Integer r) = Right (Integer (l * r))
 numericMul (Double l) (Double r) = Right (Double (l * r))
 numericMul (Integer l) (Double r) = Right (Double (fromIntegral l * r))
 numericMul (Double l) (Integer r) = Right (Double (l * fromIntegral r))
-numericMul _ _ = Left "Type error: list arithmetic requires numeric elements"
+numericMul _ _ = Left $ mkEvalError Nothing "numeric operation requires Int or Double"
 
-numericDiv :: Value -> Value -> Either String Value
+numericDiv :: Value -> Value -> Either EvalError Value
 numericDiv (Integer l) (Integer r)
     | r == 0    = Right NaN
     | otherwise = Right (Integer (l `div` r))
@@ -833,47 +810,42 @@ numericDiv (Integer l) (Double r)
 numericDiv (Double l) (Integer r)
     | r == 0    = Right NaN
     | otherwise = Right (Double (l / fromIntegral r))
-numericDiv _ _ = Left "Type error: list arithmetic requires numeric elements"
+numericDiv _ _ = Left $ mkEvalError Nothing "numeric operation requires Int or Double"
 
--- scalar / element
-numericDivLeft :: Value -> Value -> Either String Value
+numericDivLeft :: Value -> Value -> Either EvalError Value
 numericDivLeft = flip numericDiv
 
--- Immutable update of nested list elements
 data IndexKey = IdxInt Int | IdxKey String deriving (Eq, Show)
 
-setAt :: [IndexKey] -> Value -> Value -> Either String Value
-setAt [] _ _ = Left "Invalid assignment target"
--- List update
+setAt :: [IndexKey] -> Value -> Value -> Either EvalError Value
+setAt [] _ _ = Left $ mkEvalError Nothing "invalid assignment target"
 setAt (IdxInt i:is) newVal (List vals len)
-    | i < 0 || i >= len = Left "Index out of bounds"
+    | i < 0 || i >= len = Left $ mkEvalError Nothing ("index " ++ show i ++ " out of bounds (length " ++ show len ++ ")")
     | null is =
         let old = vals !! i
         in if getValueType old == getValueType newVal
               then Right (List (replaceAt i newVal vals) len)
-              else Left "Type error: assigned value type differs from list element type"
+              else Left $ mkEvalError Nothing ("type mismatch: cannot assign " ++ getValueType newVal ++ " to " ++ getValueType old)
     | otherwise = do
         nested <- case vals !! i of
                     l@(List _ _) -> Right l
                     o@(Object _) -> Right o
-                    _            -> Left "Type error: cannot index into non-collection"
+                    v            -> Left $ mkEvalError Nothing ("cannot index into " ++ getValueType v)
         updatedNested <- setAt is newVal nested
         Right (List (replaceAt i updatedNested vals) len)
--- Object update
 setAt (IdxKey k:is) newVal (Object kvs)
     | null is = Right (Object (upsert k newVal kvs))
     | otherwise = do
         nested <- case lookup k kvs of
                     Just v@(Object _) -> Right v
                     Just v@(List _ _) -> Right v
-                    Just _            -> Left "Type error: cannot index into non-object/non-list"
-                    Nothing           -> Left "Key not found for nested assignment"
+                    Just v            -> Left $ mkEvalError Nothing ("cannot index into " ++ getValueType v)
+                    Nothing           -> Left $ mkEvalError Nothing ("key '" ++ k ++ "' not found")
         updatedNested <- setAt is newVal nested
         Right (Object (upsert k updatedNested kvs))
--- Type mismatch paths
-setAt (IdxInt _ : _) _ (Object _) = Left "Type error: expected string key for object"
-setAt (IdxKey _ : _) _ (List _ _) = Left "Type error: expected integer index for list"
-setAt _ _ _ = Left "Type error: assignment target must be a list or object"
+setAt (IdxInt _ : _) _ (Object _) = Left $ mkEvalError Nothing "expected String key for Object, found Int"
+setAt (IdxKey _ : _) _ (List _ _) = Left $ mkEvalError Nothing "expected Int index for List, found String"
+setAt _ _ v = Left $ mkEvalError Nothing ("cannot assign into " ++ getValueType v)
 
 upsert :: String -> Value -> [(String, Value)] -> [(String, Value)]
 upsert key val [] = [(key, val)]
@@ -886,8 +858,7 @@ replaceAt _ _ [] = []
 replaceAt 0 newVal (_:xs) = newVal : xs
 replaceAt n newVal (x:xs) = x : replaceAt (n-1) newVal xs
 
-evalComparison :: BinaryOperation -> Value -> Value -> Either String Value
--- (x == y)
+evalComparison :: BinaryOperation -> Value -> Value -> Either EvalError Value
 evalComparison Equal (Integer l) (Integer r) = Right (Boolean (l == r))
 evalComparison Equal (Double l) (Double r) = Right (Boolean (l == r))
 evalComparison Equal (Integer l) (Double r) = Right (Boolean (fromIntegral l == r))
@@ -899,7 +870,7 @@ evalComparison Equal v1 v2
 evalComparison Equal (Character l) (Character r) = Right (Boolean (l == r))
 evalComparison Equal (List l _) (List r _) = Right (Boolean (l == r))
 evalComparison Equal (Set l _) (Set r _) = Right (Boolean (l == r))
--- (x != y)
+
 evalComparison Different (Integer l) (Integer r) = Right (Boolean (l /= r))
 evalComparison Different (Double l) (Double r) = Right (Boolean (l /= r))
 evalComparison Different (Boolean l) (Boolean r) = Right (Boolean (l /= r))
@@ -910,15 +881,12 @@ evalComparison Different (Character l) (Character r) = Right (Boolean (l /= r))
 evalComparison Different (List l _) (List r _) = Right (Boolean (l /= r))
 evalComparison Different (Set l _) (Set r _) = Right (Boolean (l /= r))
 
--- (x && y)
 evalComparison And (Boolean l) (Boolean r) = Right (Boolean (l && r))
-evalComparison And _ _ = Left "Type error in logical operation"
+evalComparison And l r = Left $ mkEvalError Nothing ("logical AND requires Bool, found " ++ getValueType l ++ " and " ++ getValueType r)
 
--- (x || y)
 evalComparison Or (Boolean l) (Boolean r) = Right (Boolean (l || r))
-evalComparison Or _ _ = Left "Type error in logical operation"
+evalComparison Or l r = Left $ mkEvalError Nothing ("logical OR requires Bool, found " ++ getValueType l ++ " and " ++ getValueType r)
 
--- (x > y)
 evalComparison GreaterThan (Integer l) (Integer r) = Right (Boolean (l > r))
 evalComparison GreaterThan (Double l) (Double r) = Right (Boolean (l > r))
 evalComparison GreaterThan v1 v2
@@ -927,7 +895,6 @@ evalComparison GreaterThan v1 v2
 evalComparison GreaterThan (List l ls) (List r rs) = Right (Boolean (ls > rs))
 evalComparison GreaterThan (Set l ls) (Set r rs) = Right (Boolean (ls > rs))
 
--- (x < y)
 evalComparison LessThan (Integer l) (Integer r) = Right (Boolean (l < r))
 evalComparison LessThan (Double l) (Double r) = Right (Boolean (l < r))
 evalComparison LessThan v1 v2
@@ -935,7 +902,7 @@ evalComparison LessThan v1 v2
     , Just s2 <- valueToString v2 = Right (Boolean (s1 < s2))
 evalComparison LessThan (List l ls) (List r rs) = Right (Boolean (ls < rs))
 evalComparison LessThan (Set l ls) (Set r rs) = Right (Boolean (ls < rs))
--- (x >= y)
+
 evalComparison GreaterThanEq (Integer l) (Integer r) = Right (Boolean (l >= r))
 evalComparison GreaterThanEq (Double l) (Double r) = Right (Boolean (l >= r))
 evalComparison GreaterThanEq v1 v2
@@ -943,7 +910,7 @@ evalComparison GreaterThanEq v1 v2
     , Just s2 <- valueToString v2 = Right (Boolean (s1 >= s2))
 evalComparison GreaterThanEq (List l ls) (List r rs) = Right (Boolean (ls >= rs))
 evalComparison GreaterThanEq (Set l ls) (Set r rs) = Right (Boolean (ls >= rs))
--- (x <= y)
+
 evalComparison LessThanEq (Integer l) (Integer r) = Right (Boolean (l <= r))
 evalComparison LessThanEq (Double l) (Double r) = Right (Boolean (l <= r))
 evalComparison LessThanEq v1 v2
@@ -952,14 +919,14 @@ evalComparison LessThanEq v1 v2
 evalComparison LessThanEq (List l ls) (List r rs) = Right (Boolean (ls <= rs))
 evalComparison LessThanEq (Set l ls) (Set r rs) = Right (Boolean (ls <= rs))
 
--- In case of an error
-evalComparison _ _ _ = Left "Type error in binary operation"
+evalComparison op l r = Left $ mkEvalError Nothing ("cannot apply " ++ show op ++ " to " ++ getValueType l ++ " and " ++ getValueType r)
 
--- Evaluate unary operations
-evalUnaryOp :: UnaryOperation -> Value -> Either String Value
+evalUnaryOp :: UnaryOperation -> Value -> Either EvalError Value
 evalUnaryOp Negate (Integer n) = Right (Integer (-n))
 evalUnaryOp Negate (Double d) = Right (Double (-d))
+evalUnaryOp Negate v = Left $ mkEvalError Nothing ("cannot negate " ++ getValueType v)
 evalUnaryOp Not (Boolean b) = Right (Boolean (not b))
+evalUnaryOp Not v = Left $ mkEvalError Nothing ("logical NOT requires Bool, found " ++ getValueType v)
 evalUnaryOp TypeOf v =
     let t = getValueType v
     in Right (List (map Character t) (length t))
@@ -968,20 +935,18 @@ evalUnaryOp SizeOf v
 evalUnaryOp SizeOf (List _ len) = Right (Integer len)
 evalUnaryOp SizeOf (Set _ len) = Right (Integer len)
 evalUnaryOp SizeOf (Object kvs) = Right (Integer (length kvs))
-evalUnaryOp _ _ = Left "Type error in unary operation"
+evalUnaryOp SizeOf v = Left $ mkEvalError Nothing ("cannot get size of " ++ getValueType v)
 
-evalUnion :: BinaryOperation -> Value -> Value -> Either String Value
--- (a <> b)
+evalUnion :: BinaryOperation -> Value -> Value -> Either EvalError Value
 evalUnion Concatenation (List l1 len1) (List l2 len2)
     | allCharacter l1 && allCharacter l2 =
         let combined = l1 ++ l2
         in Right (List combined (len1 + len2))
     | allSameType (l1 ++ l2) = Right (List (l1 ++ l2) (len1 + len2))
-    | otherwise = Left "Type error: list concatenation requires elements of the same type"
+    | otherwise = Left $ mkEvalError Nothing "list concatenation requires same element types"
 evalUnion Concatenation (Set s1 len1) (Set s2 len2) =
     let combined = s1 ++ filter (`notElem` s1) s2
     in Right (Set combined (length combined))
-
 evalUnion Concatenation v1 v2
     | Just s1 <- valueToString v1
     , Just s2 <- valueToString v2
@@ -990,7 +955,6 @@ evalUnion Concatenation v1 v2
 evalUnion Concatenation (Character c1) (Character c2) =
     Right (List [Character c1, Character c2] 2)
 
--- (a <| b) - Union
 evalUnion Union (Set s1 len1) (Set s2 len2) =
     let combined = s1 ++ filter (`notElem` s1) s2
     in Right (Set combined (length combined))
@@ -1003,7 +967,6 @@ evalUnion Union v1 v2
         let combinedStr = s1 ++ filter (`notElem` s1) s2
         in Right (List (map Character combinedStr) (length combinedStr))
 
--- (a |> b) - Intersection
 evalUnion Intersection (Set s1 len1) (Set s2 len2) =
     let common = filter (`elem` s2) s1
     in Right (Set common (length common))
@@ -1016,7 +979,6 @@ evalUnion Intersection v1 v2
         let commonChars = filter (`elem` s2) s1
         in Right (List (map Character commonChars) (length commonChars))
 
--- (a </> b) - Difference
 evalUnion Difference (Set s1 len1) (Set s2 len2) =
     let diff = filter (`notElem` s2) s1
     in Right (Set diff (length diff))
@@ -1029,9 +991,8 @@ evalUnion Difference v1 v2
         let diffChars = filter (`notElem` s2) s1
         in Right (List (map Character diffChars) (length diffChars))
 
-evalUnion _ _ _ = Left "Type error in Array operation"
+evalUnion op l r = Left $ mkEvalError Nothing ("cannot apply " ++ show op ++ " to " ++ getValueType l ++ " and " ++ getValueType r)
 
--- Pretty print a value (without type constructor names)
 prettyValue :: Value -> String
 prettyValue (Integer n) = show n
 prettyValue (Double d) = show d
@@ -1048,9 +1009,7 @@ prettyValue (AlgebraicDataType name vals) = name ++ "(" ++ intercalateWith ", " 
 prettyValue (Function _) = "<function>"
 prettyValue (Lambda _) = "<lambda>"
 
--- Helper for joining strings
 intercalateWith :: String -> [String] -> String
 intercalateWith _ [] = ""
 intercalateWith _ [x] = x
 intercalateWith sep (x:xs) = x ++ sep ++ intercalateWith sep xs
-

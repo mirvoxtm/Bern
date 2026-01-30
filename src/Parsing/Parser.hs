@@ -370,7 +370,10 @@ parseIndexAccess = do
     return idx
 
 parseExpression :: Parser Expression
-parseExpression = makeExprParser (lexeme parseTerm) operatorTable
+parseExpression = do
+    pos <- getSourcePos
+    expr <- makeExprParser (lexeme parseTerm) operatorTable
+    return $ WithPos pos expr
 
 parseVarWithIndices :: Parser (String, [Expression])
 parseVarWithIndices = do

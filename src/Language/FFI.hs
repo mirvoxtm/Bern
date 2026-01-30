@@ -16,6 +16,7 @@ import Data.Word          (Word8, Word16, Word32)
 import Data.IORef
 import System.IO.Unsafe   (unsafePerformIO)
 import qualified Data.Map.Strict as Map
+import qualified Foreign.LibFFI as FFI
 
 #ifdef mingw32_HOST_OS
 import System.Win32.DLL      (getProcAddress, loadLibrary, freeLibrary)
@@ -73,7 +74,7 @@ getStructLayout name = do
 -- Helper function to calculate field sizes
 getFieldSize :: BernCType -> Int
 getFieldSize BernInt = 4      -- 32-bit int
-getFieldSize BernDouble = 8   -- 64-bit double (assuming float in C is 4 bytes)
+getFieldSize BernDouble = 8   -- 64-bit double
 getFieldSize BernBool = 1     -- 8-bit bool
 getFieldSize BernChar = 1     -- 8-bit char
 getFieldSize _ = 0
@@ -169,9 +170,7 @@ adtToStruct typeName values = do
     case maybeLayout of
         Nothing -> return Nothing
         Just layout -> do
-            -- Allocate memory for the struct
             ptr <- mallocBytes (structSize layout)
-            -- Fill in the fields
             fillFields ptr (structFields layout) values
             return (Just (castPtr ptr))
   where
@@ -224,97 +223,84 @@ structToAdt typeName ptr = do
                 return $ Character (castCCharToChar val)
             _ -> return Undefined
 
--- Convert Bern Value to C argument
-valueToCArg :: BernCType -> Value -> IO (Maybe (Ptr ()))
-valueToCArg BernInt (Integer n) = do
-    ptr <- malloc
-    poke ptr (fromIntegral n :: CInt)
-    return $ Just (castPtr ptr)
-valueToCArg BernDouble (Double d) = do
-    ptr <- malloc
-    poke ptr (realToFrac d :: CDouble)
-    return $ Just (castPtr ptr)
-valueToCArg BernBool (Boolean b) = do
-    ptr <- malloc
-    poke ptr (if b then 1 else 0 :: CInt)
-    return $ Just (castPtr ptr)
-valueToCArg BernChar (Character c) = do
-    ptr <- malloc
-    poke ptr (castCharToCChar c)
-    return $ Just (castPtr ptr)
-valueToCArg BernString val = do
+valueToFFIArg :: BernCType -> Value -> IO FFI.Arg
+valueToFFIArg BernInt (Integer n) = 
+    return $ FFI.argCInt (fromIntegral n)
+
+valueToFFIArg BernDouble (Double d) = 
+    return $ FFI.argCDouble (realToFrac d)
+
+valueToFFIArg BernBool (Boolean b) = 
+    return $ FFI.argWord8 (if b then 1 else 0)
+
+valueToFFIArg BernChar (Character c) = 
+    return $ FFI.argCChar (castCharToCChar c)
+
+valueToFFIArg BernString val = do
     case valueToString val of
-        Just s  -> fmap (Just . castPtr) (newCString s)
-        Nothing -> return Nothing
-valueToCArg (BernStruct typeName) (AlgebraicDataType name values) 
-    | typeName == name = adtToStruct typeName values
-valueToCArg _ _ = return Nothing
+        Just s -> do
+            cstr <- newCString s
+            return $ FFI.argPtr cstr
+        Nothing -> 
+            return $ FFI.argPtr nullPtr
 
-cResultToValue :: BernCType -> Ptr () -> IO Value
-cResultToValue BernInt ptr = do
-    v <- peek (castPtr ptr :: Ptr CInt)
-    return $ Integer (fromIntegral v)
-cResultToValue BernDouble ptr = do
-    v <- peek (castPtr ptr :: Ptr CDouble)
-    return $ Double (realToFrac v)
-cResultToValue BernBool ptr = do
-    v <- peek (castPtr ptr :: Ptr CInt)
-    return $ Boolean (v /= 0)
-cResultToValue BernChar ptr = do
-    v <- peek (castPtr ptr :: Ptr CChar)
-    return $ Character (castCCharToChar v)
-cResultToValue BernString ptr = do
-    str <- peekCString (castPtr ptr)
-    return $ List (map Character str) (length str)
-cResultToValue (BernStruct typeName) ptr = do
-    maybeVal <- structToAdt typeName ptr
-    case maybeVal of
-        Just val -> return val
-        Nothing -> return Undefined
-cResultToValue BernVoid _ = return Undefined
+valueToFFIArg (BernStruct typeName) (AlgebraicDataType name values)
+    | typeName == name = do
+        maybeStructPtr <- adtToStruct typeName values
+        case maybeStructPtr of
+            Just structPtr -> return $ FFI.argPtr structPtr
+            Nothing -> return $ FFI.argPtr nullPtr
 
--- Dynamic Wrappers (existing ones remain the same)
-foreign import ccall "dynamic"
-    mkVoidFun :: FunPtr (IO ()) -> IO ()
+valueToFFIArg _ _ = return $ FFI.argPtr nullPtr
 
-foreign import ccall "dynamic"
-    mkIntFun :: FunPtr (IO CInt) -> IO CInt
-
-foreign import ccall "dynamic"
-    mkIntIntFun :: FunPtr (CInt -> IO CInt) -> CInt -> IO CInt
-
-foreign import ccall "dynamic"
-    mkIntIntIntFun :: FunPtr (CInt -> CInt -> IO CInt) -> CInt -> CInt -> IO CInt
-
-foreign import ccall "dynamic"
-    mkIntIntStringVoidFun :: FunPtr (CInt -> CInt -> CString -> IO ()) -> CInt -> CInt -> CString -> IO ()
-
-foreign import ccall "dynamic"
-    mkIntVoidFun :: FunPtr (CInt -> IO ()) -> CInt -> IO ()
-
-foreign import ccall "dynamic"
-    mkStringIntIntIntIntVoidFun :: FunPtr (CString -> CInt -> CInt -> CInt -> CInt -> IO ()) -> CString -> CInt -> CInt -> CInt -> CInt -> IO ()
-
-foreign import ccall "dynamic"
-    mkIntIntIntIntStructVoidFun :: FunPtr (CInt -> CInt -> Ptr () -> IO ()) -> CInt -> CInt -> Ptr () -> IO ()
-
-foreign import ccall "dynamic"
-    mkDoubleFun :: FunPtr (IO CDouble) -> IO CDouble
-
-foreign import ccall "dynamic"
-    mkDoubleDoubleFun :: FunPtr (CDouble -> IO CDouble) -> CDouble -> IO CDouble
-
-foreign import ccall "dynamic"
-    mkDoubleDoubleDoubleFun :: FunPtr (CDouble -> CDouble -> IO CDouble) -> CDouble -> CDouble -> IO CDouble
-
-foreign import ccall "dynamic"
-    mkStringIntFun :: FunPtr (CString -> IO CInt) -> CString -> IO CInt
-
-foreign import ccall "dynamic"
-    mkStringStringFun :: FunPtr (CString -> IO CString) -> CString -> IO CString
-
-foreign import ccall "dynamic"
-    mkBoolFun :: FunPtr (IO CInt) -> IO CInt
+-- Universal C function caller using libffi
+callCFunctionUniversal :: Ptr () -> [BernCType] -> BernCType -> [Value] -> IO Value
+callCFunctionUniversal funPtr argTypes retType args = do
+    if length args /= length argTypes
+        then return Undefined
+        else do
+            -- Convert arguments to FFI args
+            ffiArgs <- mapM (uncurry valueToFFIArg) (zip argTypes args)
+            
+            -- Call based on return type
+            case retType of
+                BernInt -> do
+                    (result :: CInt) <- FFI.callFFI (castPtrToFunPtr funPtr) FFI.retCInt ffiArgs
+                    return $ Integer (fromIntegral result)
+                
+                BernDouble -> do
+                    (result :: CDouble) <- FFI.callFFI (castPtrToFunPtr funPtr) FFI.retCDouble ffiArgs
+                    return $ Double (realToFrac result)
+                
+                BernBool -> do
+                    (result :: Word8) <- FFI.callFFI (castPtrToFunPtr funPtr) FFI.retWord8 ffiArgs
+                    return $ Boolean (result /= 0)
+                
+                BernChar -> do
+                    (result :: CChar) <- FFI.callFFI (castPtrToFunPtr funPtr) FFI.retCChar ffiArgs
+                    return $ Character (castCCharToChar result)
+                
+                BernString -> do
+                    (cstrPtr :: CString) <- FFI.callFFI (castPtrToFunPtr funPtr) (FFI.retPtr FFI.retCChar) ffiArgs
+                    if cstrPtr == nullPtr
+                        then return $ List [] 0
+                        else do
+                            str <- peekCString cstrPtr
+                            return $ List (map Character str) (length str)
+                
+                BernStruct typeName -> do
+                    (structPtr :: Ptr Word8) <- FFI.callFFI (castPtrToFunPtr funPtr) (FFI.retPtr FFI.retWord8) ffiArgs
+                    if structPtr == nullPtr
+                        then return Undefined
+                        else do
+                            maybeVal <- structToAdt typeName (castPtr structPtr :: Ptr ())
+                            case maybeVal of
+                                Just val -> return val
+                                Nothing -> return Undefined
+                
+                BernVoid -> do
+                    FFI.callFFI (castPtrToFunPtr funPtr) FFI.retVoid ffiArgs
+                    return Undefined
 
 -- Cross platform function loader
 loadCFunction
@@ -348,114 +334,12 @@ loadAndCall libPath funcName argTypes retType = do
                            error $ "Symbol lookup failed: " ++ show e)
 
     return $ \args -> do
-        if length args /= length argTypes
-            then return Undefined
-            else callCFunction funPtrRaw argTypes retType args
-
-callCFunction :: Ptr () -> [BernCType] -> BernCType -> [Value] -> IO Value
-callCFunction funPtr argTypes retType args = do
-    result <- try $ callCFunctionUnsafe funPtr argTypes retType args
-    case result of
-        Left  (e :: SomeException) -> do
-            hPutStrLn stderr $ "FFI call failed: " ++ show e
-            return Undefined
-        Right val -> return val
-
-callCFunctionUnsafe :: Ptr () -> [BernCType] -> BernCType -> [Value] -> IO Value
-
-callCFunctionUnsafe funPtr [] BernBool _ = do
-    let f = mkBoolFun (castPtrToFunPtr funPtr)
-    r <- f
-    return $ Boolean (r /= 0)
-
-callCFunctionUnsafe funPtr [] BernVoid _ = do
-    let f = mkVoidFun (castPtrToFunPtr funPtr)
-    f
-    return Undefined
-
-callCFunctionUnsafe funPtr [BernInt] BernVoid [arg] = do
-    let f = mkIntVoidFun (castPtrToFunPtr funPtr)
-    case arg of
-        Integer n -> f (fromIntegral n) >> return Undefined
-        _         -> return Undefined
-
-callCFunctionUnsafe funPtr [BernInt, BernInt, BernString] BernVoid [arg1, arg2, arg3] = do
-    let f = mkIntIntStringVoidFun (castPtrToFunPtr funPtr)
-    case (arg1, arg2, valueToString' arg3) of
-        (Integer a, Integer b, Just s) ->
-            withCString s $ \cstr -> f (fromIntegral a) (fromIntegral b) cstr >> return Undefined
-        _ -> return Undefined
-
--- Handle struct arguments
-callCFunctionUnsafe funPtr [BernInt, BernInt, BernStruct typeName] BernVoid [a1, a2, a3] = do
-    let f = mkIntIntIntIntStructVoidFun (castPtrToFunPtr funPtr)
-    case (a1, a2, a3) of
-        (Integer x, Integer y, adt@(AlgebraicDataType name vals)) | name == typeName -> do
-            maybeStructPtr <- adtToStruct typeName vals
-            case maybeStructPtr of
-                Just structPtr -> f (fromIntegral x) (fromIntegral y) structPtr >> return Undefined
-                Nothing -> return Undefined
-        _ -> return Undefined
-
-callCFunctionUnsafe funPtr [BernString, BernInt, BernInt, BernInt, BernInt] BernVoid [a1,a2,a3,a4,a5] = do
-    let f = mkStringIntIntIntIntVoidFun (castPtrToFunPtr funPtr)
-    case (valueToString' a1, a2, a3, a4, a5) of
-        (Just s, Integer x, Integer y, Integer sz, Integer col) ->
-            withCString s $ \cstr ->
-                f cstr (fromIntegral x) (fromIntegral y) (fromIntegral sz) (fromIntegral col)
-                >> return Undefined
-        _ -> return Undefined
-
-callCFunctionUnsafe funPtr [] BernInt _ = do
-    let f = mkIntFun (castPtrToFunPtr funPtr)
-    r <- f
-    return $ Integer (fromIntegral r)
-
-callCFunctionUnsafe funPtr [BernInt] BernInt [arg] = do
-    let f = mkIntIntFun (castPtrToFunPtr funPtr)
-    case arg of
-        Integer n -> do r <- f (fromIntegral n); return $ Integer (fromIntegral r)
-        _         -> return Undefined
-
-callCFunctionUnsafe funPtr [BernInt, BernInt] BernInt [a1, a2] = do
-    let f = mkIntIntIntFun (castPtrToFunPtr funPtr)
-    case (a1, a2) of
-        (Integer x, Integer y) -> do r <- f (fromIntegral x) (fromIntegral y); return $ Integer (fromIntegral r)
-        _                      -> return Undefined
-
-callCFunctionUnsafe funPtr [] BernDouble _ = do
-    let f = mkDoubleFun (castPtrToFunPtr funPtr)
-    r <- f
-    return $ Double (realToFrac r)
-
-callCFunctionUnsafe funPtr [BernDouble] BernDouble [arg] = do
-    let f = mkDoubleDoubleFun (castPtrToFunPtr funPtr)
-    case arg of
-        Double d -> do r <- f (realToFrac d); return $ Double (realToFrac r)
-        _        -> return Undefined
-
-callCFunctionUnsafe funPtr [BernDouble, BernDouble] BernDouble [a1, a2] = do
-    let f = mkDoubleDoubleDoubleFun (castPtrToFunPtr funPtr)
-    case (a1, a2) of
-        (Double x, Double y) -> do r <- f (realToFrac x) (realToFrac y); return $ Double (realToFrac r)
-        _                    -> return Undefined
-
-callCFunctionUnsafe funPtr [BernString] BernInt [arg] = do
-    let f = mkStringIntFun (castPtrToFunPtr funPtr)
-    case valueToString' arg of
-        Just s -> withCString s $ \cstr -> do r <- f cstr; return $ Integer (fromIntegral r)
-        _      -> return Undefined
-
-callCFunctionUnsafe funPtr [BernString] BernString [arg] = do
-    let f = mkStringStringFun (castPtrToFunPtr funPtr)
-    case valueToString' arg of
-        Just s -> withCString s $ \cstr -> do
-            ptr <- f cstr
-            str <- peekCString ptr
-            return $ List (map Character str) (length str)
-        _      -> return Undefined
-
-callCFunctionUnsafe _ _ _ _ = return Undefined
+        result <- try $ callCFunctionUniversal funPtrRaw argTypes retType args
+        case result of
+            Left  (e :: SomeException) -> do
+                hPutStrLn stderr $ "FFI call failed: " ++ show e
+                return Undefined
+            Right val -> return val
 
 showValue :: Value -> String
 showValue (Integer n)   = "Integer(" ++ show n ++ ")"

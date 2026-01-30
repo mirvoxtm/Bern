@@ -33,6 +33,7 @@ library
                       hashtables,
                       containers,
                       directory,
+                      libffi,
                       filepath
     if os(windows)
         build-depends: Win32

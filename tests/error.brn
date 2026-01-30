@@ -1,0 +1,191 @@
+-- Test file for error handling in the Bern language
+-- This file contains various errors to test the improved error messages
+
+-- Test 1: Type mismatch in condition
+def main() do
+    if 42 then
+        print("This will error")
+    else
+        print("Type error")
+    end
+end
+
+-- Test 2: Undefined variable
+def test_undefined() do
+    print(undefined_variable)
+end
+
+-- Test 3: Index out of bounds
+def test_bounds() do
+    list = [1, 2, 3]
+    print(list[5])
+end
+
+-- Test 4: Wrong type for repeat
+def test_repeat() do
+    repeat "hello" times
+        print("Error")
+    end
+end
+
+-- Test 5: Type mismatch in list
+def test_list_types() do
+    mixed = [1, 2, "three", 4]
+    print(mixed)
+end
+
+-- Test 6: Invalid operation
+def test_invalid_op() do
+    result = "hello" * true
+    print(result)
+end
+
+-- Test 7: Function not found
+def test_undefined_function() do
+    x = nonexistent_func(1, 2, 3)
+    print(x)
+end
+
+-- Test 8: Wrong index type for list
+def test_wrong_index() do
+    nums = [10, 20, 30]
+    print(nums["key"])
+end
+
+-- Test 9: List length mismatch in arithmetic
+def test_list_arithmetic() do
+    a = [1, 2, 3]
+    b = [4, 5]
+    c = a + b
+    print(c)
+end
+
+-- Test 10: Cannot negate non-numeric
+def test_negate() do
+    x = -"hello"
+    print(x)
+end
+
+-- Test 11: Logical operation on non-boolean
+def test_logic() do
+    result = 5 && 10
+    print(result)
+end
+
+-- Test 12: Missing object key
+def test_object_key() do
+    obj = #{ name: "Alice", age: 30 }#
+    print(obj["email"])
+end
+
+-- Test 13: Cannot iterate non-collection
+def test_iteration() do
+    for x in 42 do
+        print(x)
+    end
+end
+
+-- Test 14: Type mismatch in assignment to indexed element
+def test_assign_type() do
+    nums = [1, 2, 3]
+    nums[0] = "string"
+    print(nums)
+end
+
+-- Test 15: Pattern matching failure
+def factorial(0) -> 1
+def factorial(n) -> n * factorial(n - 1)
+
+def test_pattern() do
+    -- This should work
+    print(factorial(5))
+    
+    -- This will error - no pattern for negative or non-integer
+    print(factorial("hello"))
+end
+
+-- Test 17: Division by zero (should return NaN)
+def test_division() do
+    result = 10 / 0
+    print(result)  -- Should print NaN
+end
+
+-- Test 18: Module not found
+def test_import() do
+    import nonexistent_module
+end
+
+-- Test 19: Wrong argument count (pattern mismatch)
+def add(a, b) -> a + b
+
+def test_args() do
+    print(add(1, 2, 3))  -- Too many arguments
+end
+
+-- Test 20: Cannot index into primitive
+def test_index_primitive() do
+    x = 42
+    print(x[0])
+end
+
+-- Test 21: Set operations with wrong types
+def test_set_ops() do
+    s = {1, 2, 3}
+    result = s <> "hello"  -- Concatenation of set and string
+    print(result)
+end
+
+-- Test 22: Nested index out of bounds
+def test_nested_index() do
+    matrix = [[1, 2], [3, 4], [5, 6]]
+    matrix[1][5] = 99  -- Second index out of bounds
+    print(matrix)
+end
+
+-- Test 23: Cannot get size of function
+def test_sizeof() do
+    f = \x -> x + 1
+    size = :> f
+    print(size)
+end
+
+-- Test 24: Assignment to wrong index type
+def test_assign_index() do
+    list = [1, 2, 3]
+    list["key"] = 42  -- Using string key on list
+    print(list)
+end
+
+-- Test 25: While condition not boolean
+def test_while() do
+    i = 0
+    for i do  -- i is Int, not Bool
+        i = i + 1
+    end
+end
+
+-- Test 26: Comparison of incompatible types (fallthrough case)
+def test_comparison() do
+    result = [1, 2] > "hello"
+    print(result)
+end
+
+-- Test 27: Union operation on incompatible types
+def test_union() do
+    result = 42 <| "hello"
+    print(result)
+end
+
+-- Test 28: File operations with wrong types
+def test_file_ops() do
+    write_file(123, "content")  -- Filename should be string
+end
+
+-- Test 30: Nested assignment to non-collection
+def test_nested_assign() do
+    x = 42
+    x[0][1] = 99  -- Cannot index into Int
+    print(x)
+end
+
+test_nested_assign()
