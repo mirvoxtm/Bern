@@ -15,6 +15,14 @@ import Text.Megaparsec (errorBundlePretty, sourcePosPretty, SourcePos)
 import Text.Megaparsec.Pos (sourceName, sourceLine, sourceColumn, unPos)
 import Data.List (isInfixOf)
 import qualified Language.FFI as FFI
+import Control.Concurrent.MVar
+import System.Mem.StableName
+
+-- Global mutable reference to the global scope using MVar
+{-# NOINLINE globalScopeMVar #-}
+globalScopeMVar :: MVar (Hashtable String Value)
+globalScopeMVar = unsafePerformIO $ do
+    newMVar emptyHashtable
 
 -- | Error type for better error messages
 data EvalError = EvalError
@@ -107,8 +115,69 @@ interpretCommand mpos (Assign name expr) table =
         Right v@(Function _)  -> return (insertHashtable table name v)
         Right v@(Lambda _)    -> return (insertHashtable table name v)
         Right v@(AlgebraicDataType _ _) -> return (insertHashtable table name v)
-        Right v@(CBinding _ _) -> return (insertHashtable table name v)
-        Right v@(NaN)          -> return (insertHashtable table name v)
+
+interpretCommand mpos (GlobalAssign name expr) table =
+    case evaluate expr table of
+        Right v@(Integer _)   -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Double _)    -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Boolean _)   -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Character _) -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(List _ _)    -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Set _ _)     -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Object _)    -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Function _)  -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(Lambda _)    -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(AlgebraicDataType _ _) -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(CBinding _ _) -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
+        Right v@(NaN)          -> do
+            globalScope <- takeMVar globalScopeMVar
+            let newGlobalScope = insertHashtable globalScope name v
+            putMVar globalScopeMVar newGlobalScope
+            return (insertHashtable table name v)
         Right v               -> die (mkEvalErrorHint mpos
             ("cannot assign unexpected value to '" ++ name ++ "'")
             ("value type: " ++ show v))
@@ -503,10 +572,17 @@ evaluate (Index expr idxExpr) table = do
                 Nothing -> Left $ mkEvalError Nothing ("key '" ++ [c] ++ "' not found")
         _ -> Left $ mkEvalError Nothing ("cannot index " ++ getValueType collection ++ " with " ++ getValueType idx)
 
-evaluate (Variable name) table =
-    case lookupHashtable table name of
-        Just val -> Right val
-        Nothing  -> Right Undefined
+evaluate (Variable name) table = unsafePerformIO $ do
+    globalScopeNow <- readMVar globalScopeMVar
+    case lookupHashtable globalScopeNow name of
+        Just val -> do
+            return (Right val)
+        Nothing  ->
+            case lookupHashtable table name of
+                Just val -> do
+                    return (Right val)
+                Nothing  -> do
+                    return (Right Undefined)
 
 evaluate (ReadFile filenameExpr) table = do
     pathVal <- evaluate filenameExpr table

@@ -145,6 +145,7 @@ data Clause = Clause [Pattern] FunctionBody
 data Command = Skip
                 | Print Expression
                 | Assign String Expression                    -- (=)
+                | GlobalAssign String Expression              -- (:=) - global assignment
                 | AssignIndex String [Expression] Expression  -- var[idx..] = expr
                 | Conditional Expression Command Command      -- if-then-else
                 | Repeat Expression Command                   -- for 3 do {}

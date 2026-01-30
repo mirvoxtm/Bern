@@ -384,25 +384,30 @@ parseVarWithIndices = do
     return (varName, idxs)
 
 parseAssignment :: Parser Command
-parseAssignment = try parseIndexedAssign <|> parseSimpleAssign
+parseAssignment = try parseIndexedAssign <|> try parseGlobalAssign <|> parseSimpleAssign
   where
     parseIndexedAssign = try $ do
         (varName, idxs) <- lexeme parseVarWithIndices
         if null idxs then fail "no indices" else pure ()
-        -- Allow zero-or-more horizontal whitespace between the variable and '='
         _ <- optional scn
         _ <- symbol "="
-        _ <- optional sc  -- allow newline before rhs
+        _ <- optional sc
         expr <- parseExpression
         return $ AssignIndex varName idxs expr
+    parseGlobalAssign = do
+        (varName, idxs) <- lexeme parseVarWithIndices
+        if not (null idxs) then fail "indexed" else pure ()
+        _ <- optional scn
+        _ <- symbol ":="
+        _ <- optional sc
+        expr <- parseExpression
+        return $ GlobalAssign varName expr
     parseSimpleAssign = do
         (varName, idxs) <- lexeme parseVarWithIndices
         if not (null idxs) then fail "indexed" else pure ()
-        -- Allow zero-or-more horizontal whitespace between the variable and '='
         _ <- optional scn
         _ <- symbol "="
-        _ <- optional sc  -- allow newline before rhs
-        -- Check if right-hand side is input() call
+        _ <- optional sc
         inputCall <- optional $ try $ do
             _ <- keyword "input"
             _ <- symbolNoNl "("
