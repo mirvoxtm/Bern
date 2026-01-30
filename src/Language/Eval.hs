@@ -243,6 +243,11 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = 
     typeToString TString = "String"
     typeToString TList = "List"
     typeToString TSet = "Set"
+    typeToString (TCustom "Byte") = "Byte"      -- NEW
+    typeToString (TCustom "UChar") = "UChar"    -- NEW
+    typeToString (TCustom "Float") = "Float"    -- NEW
+    typeToString (TCustom "Short") = "Short"    -- NEW
+    typeToString (TCustom "UShort") = "UShort"  -- NEW
     typeToString (TCustom name) = name
     
     createStructLayout :: String -> [String] -> FFI.StructLayout
@@ -264,6 +269,11 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = 
     typeStringToBernCType "Double" = FFI.BernDouble
     typeStringToBernCType "Bool" = FFI.BernBool
     typeStringToBernCType "Char" = FFI.BernChar
+    typeStringToBernCType "Byte" = FFI.BernByte
+    typeStringToBernCType "UChar" = FFI.BernByte
+    typeStringToBernCType "Float" = FFI.BernFloat
+    typeStringToBernCType "Short" = FFI.BernShort
+    typeStringToBernCType "UShort" = FFI.BernUShort
     typeStringToBernCType _ = FFI.BernVoid
 
 interpretCommand mpos (Import moduleName) table = do

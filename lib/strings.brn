@@ -168,3 +168,37 @@ def join(strings, delimiter) do
     end
     return result
 end
+
+def from_int(n) do
+    if n == 0 then
+        return "0"
+    end
+    
+    is_negative = n < 0
+    if is_negative then
+        n = -n
+    end
+    
+    digits = ""
+    for n > 0 do
+        digit = n % 10
+        if digit == 0 then digits = "0" + digits
+        else if digit == 1 then digits = "1" + digits
+        else if digit == 2 then digits = "2" + digits
+        else if digit == 3 then digits = "3" + digits
+        else if digit == 4 then digits = "4" + digits
+        else if digit == 5 then digits = "5" + digits
+        else if digit == 6 then digits = "6" + digits
+        else if digit == 7 then digits = "7" + digits
+        else if digit == 8 then digits = "8" + digits
+        else if digit == 9 then digits = "9" + digits
+        end
+        n = n / 10
+    end
+    
+    if is_negative then
+        return "-" + digits
+    else
+        return digits
+    end
+end
