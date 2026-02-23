@@ -7,8 +7,8 @@ set -euo pipefail
 # Configuration
 readonly INSTALL_DIR="/opt/bern"
 readonly REPO="mirvoxtm/Bern"
-readonly ZIP_NAME="Bern_linux_1.0.1.zip"
-readonly VERSION="1.0.1"
+readonly ZIP_NAME="Bern_linux_1.1.2.zip"
+readonly VERSION="1.1.2"
 
 # Colors
 readonly PURPLE='\033[35m'

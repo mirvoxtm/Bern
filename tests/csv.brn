@@ -1,0 +1,57 @@
+import vendor/csv
+import strings
+import assert
+
+csv_basic = "name,age\nAna,30\nBob,25"
+parsed_basic = parse_csv(csv_basic)
+assert_equals("csv basic rows", :> parsed_basic, 2)
+assert_equals("csv basic name", parsed_basic["0"]["name"], "Ana")
+assert_equals("csv basic age", parsed_basic["1"]["age"], "25")
+
+csv_semicolon = "id;value\n1;x\n2;y"
+parsed_semicolon = parse_csv(csv_semicolon, ";")
+assert_equals("csv delimiter id", parsed_semicolon["1"]["id"], "2")
+assert_equals("csv delimiter value", parsed_semicolon["0"]["value"], "x")
+
+csv_quoted = "name,note\nAna,\"likes, commas\"\nBob,\"He said \"\"Hello\"\"\""
+parsed_quoted = parse_csv(csv_quoted)
+assert_equals("csv quoted comma", parsed_quoted["0"]["note"], "likes, commas")
+assert_equals("csv quoted quote", parsed_quoted["1"]["note"], "He said \"Hello\"")
+
+rows_no_header = parse_csv("a,b\nc,d", ",", false)
+assert_equals("csv no header row count", :> rows_no_header, 2)
+assert_equals("csv no header first", rows_no_header["0"][0], "a")
+assert_equals("csv no header second", rows_no_header["1"][1], "d")
+
+rows_keep = parse_csv_rows("h1,h2\n\nx,y\n", ",", false)
+rows_skip = parse_csv_rows("h1,h2\n\nx,y\n", ",", true)
+assert_equals("csv keep empty rows", :> rows_keep, 3)
+assert_equals("csv skip empty rows", :> rows_skip, 2)
+
+headers = ["name", "note"]
+data_list = [["Ana", "likes, commas"], ["Bob", "He said \"Hello\""]]
+write_csv_from_list(headers, data_list, "tests/tmp_csv_output.csv")
+written_content = read_file("tests/tmp_csv_output.csv")
+assert_equals("csv writer quoted comma", contains(written_content, "\"likes, commas\""), true)
+assert_equals("csv writer quoted quote", contains(written_content, "\"He said \"\"Hello\"\"\""), true)
+
+parsed_roundtrip = parse_csv(written_content)
+assert_equals("csv roundtrip comma", parsed_roundtrip["0"]["note"], "likes, commas")
+assert_equals("csv roundtrip quote", parsed_roundtrip["1"]["note"], "He said \"Hello\"")
+
+row0 = #{}#
+row0["name"] = "Ana"
+row0["note"] = "Engineer"
+
+row1 = #{}#
+row1["name"] = "Bob"
+row1["note"] = "Designer"
+
+rows_obj = #{}#
+rows_obj["0"] = row0
+rows_obj["1"] = row1
+
+write_csv_from_objects(headers, rows_obj, "tests/tmp_csv_objects.csv")
+parsed_objects = read_csv("tests/tmp_csv_objects.csv")
+assert_equals("csv objects row0", parsed_objects["0"]["name"], "Ana")
+assert_equals("csv objects row1", parsed_objects["1"]["note"], "Designer")

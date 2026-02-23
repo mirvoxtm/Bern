@@ -297,6 +297,11 @@
                 <li><a href="#lib-strings">strings</a></li>
                 <li><a href="#lib-random">random</a></li>
                 <li><a href="#lib-assert">assert</a></li>
+                <li><a href="#lib-path">path</a></li>
+                <li><a href="#lib-url">url</a></li>
+                <li><a href="#lib-crypto">crypto</a></li>
+                <li><a href="#lib-csv">vendor/csv</a></li>
+                <li><a href="#lib-http">vendor/http/http</a></li>
             </ul>
 
             <h3>Other Features</h3>
@@ -792,7 +797,7 @@ safeDivide(5, 0)
             <!-- LIBRARY REFERENCE -->
             <div class="doc-section" id="libraries">
                 <h2>Standard Library Reference</h2>
-                <p>Bern comes with several standard libraries that provide essential functionality. Import them using <code>import library_name</code>.</p>
+                <p>Bern comes with several standard libraries and bundled vendor modules. Import standard libraries with <code>import library_name</code> and vendor modules with full paths like <code>import vendor/csv</code>.</p>
 
                 <!-- CORE LIBRARY -->
                 <div id="lib-core" style="margin-top: 3rem;">
@@ -1051,7 +1056,7 @@ safeDivide(5, 0)
                     <h3>random - Random Number Generation</h3>
                     <p>Cross-platform random number generation using foreign function interface to system libraries.</p>
                     <div class="note">
-                    <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+                    <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. 
                     </div>
 
                     <pre class="simple-code">import random</pre>
@@ -1112,6 +1117,214 @@ assert_equals("Wrong test", 2 + 2, 5)
 
                     <div class="function-sig">approx_eq(a, b, tolerance) → boolean</div>
                     <p>Check if two numbers are approximately equal. Helper function for assert_approx.</p>
+                </div>
+
+                <!-- PATH LIBRARY -->
+                <div id="lib-path" style="margin-top: 3rem;">
+                    <h3>path - Filesystem Path Utilities</h3>
+                    <p>Utilities for joining, normalizing, and inspecting filesystem paths.</p>
+
+                    <pre class="simple-code">import path</pre>
+
+                    <h4>Path Building</h4>
+
+                    <div class="function-sig">path_join(left, right) → string</div>
+                    <p>Join two path segments with a single separator.</p>
+                    <pre class="simple-code">path_join("a/", "/b")
+-- Output: "a/b"</pre>
+
+                    <div class="function-sig">path_join_many(parts) → string</div>
+                    <p>Join a list of path segments in order.</p>
+                    <pre class="simple-code">path_join_many(["a", "b", "c"])
+-- Output: "a/b/c"</pre>
+
+                    <h4>Path Inspection</h4>
+
+                    <div class="function-sig">path_is_absolute(path) → boolean</div>
+                    <p>Check if a path is absolute (supports Unix and drive-prefixed paths).</p>
+
+                    <div class="function-sig">path_basename(path) → string</div>
+                    <p>Return the last segment of a path.</p>
+
+                    <div class="function-sig">path_dirname(path) → string</div>
+                    <p>Return the parent directory path.</p>
+
+                    <div class="function-sig">path_extname(path) → string</div>
+                    <p>Return extension including leading dot, or empty string.</p>
+
+                    <div class="function-sig">path_stem(path) → string</div>
+                    <p>Return basename without extension.</p>
+
+                    <h4>Normalization</h4>
+
+                    <div class="function-sig">path_normalize(path) → string</div>
+                    <p>Resolve redundant separators and dot segments like <code>.</code> and <code>..</code>.</p>
+                    <pre class="simple-code">path_normalize("a/./b/../c")
+-- Output: "a/c"
+
+path_normalize("/a//b/../c")
+-- Output: "/a/c"</pre>
+                </div>
+
+                <!-- URL LIBRARY -->
+                <div id="lib-url" style="margin-top: 3rem;">
+                    <h3>url - URL Encoding and Parsing</h3>
+                    <p>Helpers for URL encoding, decoding, query processing, and full URL parsing/building.</p>
+
+                    <pre class="simple-code">import url</pre>
+
+                    <h4>Component Encoding</h4>
+
+                    <div class="function-sig">url_encode_component(text) → string</div>
+                    <p>Percent-encode a URL component.</p>
+                    <pre class="simple-code">url_encode_component("a b&c")
+-- Output: "a%20b%26c"</pre>
+
+                    <div class="function-sig">url_decode_component(text) → string</div>
+                    <p>Decode a percent-encoded URL component.</p>
+
+                    <h4>Query Utilities</h4>
+
+                    <div class="function-sig">build_query(pairs) → string</div>
+                    <p>Build query text from key/value pairs.</p>
+                    <pre class="simple-code">build_query([["a", "1"], ["name", "bern lang"]])
+-- Output: "a=1&name=bern%20lang"</pre>
+
+                    <div class="function-sig">parse_query(query) → object</div>
+                    <p>Parse query string into an object of decoded key/value pairs.</p>
+
+                    <h4>Full URL Operations</h4>
+
+                    <div class="function-sig">parse_url(url_text) → object</div>
+                    <p>Parse URL into <code>scheme</code>, <code>host</code>, <code>port</code>, <code>path</code>, <code>query</code>, and <code>fragment</code>.</p>
+                    <pre class="simple-code">parsed = parse_url("http://example.com:8080/docs/api?x=1#top")
+parsed["host"]
+-- Output: "example.com"</pre>
+
+                    <div class="function-sig">build_url(scheme, host, port, path, query, fragment) → string</div>
+                    <p>Build a URL from components (default ports are omitted when applicable).</p>
+                    <pre class="simple-code">build_url("https", "example.com", 443, "/hello", "a=1", "frag")
+-- Output: "https://example.com/hello?a=1#frag"</pre>
+                </div>
+
+                <!-- CRYPTO LIBRARY -->
+                <div id="lib-crypto" style="margin-top: 3rem;">
+                    <h3>crypto - Token and Hash Utilities</h3>
+                    <p>Pure-Bern helpers for token generation, checksums, and UUID-like identifiers.</p>
+                    <div class="note">
+                        <strong>Note:</strong> These helpers are useful for IDs/checksums, but are not a replacement for modern audited cryptographic algorithms.
+                    </div>
+
+                    <pre class="simple-code">import crypto</pre>
+
+                    <h4>Random Utilities</h4>
+
+                    <div class="function-sig">crypto_random_token(length) → string</div>
+                    <p>Generate a random token string with the given length.</p>
+
+                    <div class="function-sig">crypto_random_hex(byte_count) → string</div>
+                    <p>Generate random hex text (2 characters per requested byte).</p>
+                    <pre class="simple-code">crypto_random_hex(8)
+-- Output: (16 hex chars)</pre>
+
+                    <h4>Hashing and Comparison</h4>
+
+                    <div class="function-sig">crypto_checksum32(text) → int</div>
+                    <p>Compute a 32-bit checksum for text.</p>
+
+                    <div class="function-sig">crypto_hash32_hex(text) → string</div>
+                    <p>Checksum represented as an 8-character hexadecimal string.</p>
+
+                    <div class="function-sig">crypto_secure_compare(a, b) → boolean</div>
+                    <p>Compare two strings in fixed-length iteration style to reduce timing leakage.</p>
+
+                    <h4>UUID-Like IDs</h4>
+
+                    <div class="function-sig">crypto_uuid_v4_like() → string</div>
+                    <p>Create a random UUID v4-like identifier string.</p>
+                    <pre class="simple-code">uuid = crypto_uuid_v4_like()
+-- Output: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"</pre>
+                </div>
+
+                <!-- CSV MODULE -->
+                <div id="lib-csv" style="margin-top: 3rem;">
+                    <h3>vendor/csv - CSV Parsing and Writing</h3>
+                    <p>Bundled module for reading and writing CSV data from strings or files.</p>
+
+                    <pre class="simple-code">import vendor/csv</pre>
+
+                    <h4>Reading and Parsing</h4>
+
+                    <div class="function-sig">parse_csv(content, delimiter, has_header, skip_empty_lines) → object | rows</div>
+                    <p>Parse CSV text. With headers enabled, returns objects keyed by header names.</p>
+                    <pre class="simple-code">csv = "name,age\nAna,30\nBob,25"
+rows = parse_csv(csv)
+rows["0"]["name"]
+-- Output: "Ana"</pre>
+
+                    <div class="function-sig">read_csv(file_name, delimiter, has_header, skip_empty_lines) → object | rows</div>
+                    <p>Read a CSV file and parse it in one step.</p>
+
+                    <div class="function-sig">parse_csv_rows(content, delimiter, skip_empty_lines) → rows</div>
+                    <p>Parse raw rows without converting to header-keyed objects.</p>
+
+                    <h4>Writing</h4>
+
+                    <div class="function-sig">write_csv_from_list(headers, data_list, file_name, delimiter) → void</div>
+                    <p>Write a list-of-lists dataset to CSV.</p>
+
+                    <div class="function-sig">write_csv_from_objects(headers, data_object, file_name, delimiter) → void</div>
+                    <p>Write an indexed object of rows to CSV using specified header order.</p>
+                </div>
+
+                <!-- HTTP MODULE -->
+                <div id="lib-http" style="margin-top: 3rem;">
+                    <h3>vendor/http/http - Lightweight HTTP Server</h3>
+                    <p>FFI-backed HTTP server module for static route responses from Bern.</p>
+                    <div class="note">
+                        <strong>Note:</strong> Requires the platform binary in <code>lib/vendor/http</code> (for example <code>linux/libbern_http.so</code> or <code>windows/bern_http.dll</code>).
+                    </div>
+
+                    <pre class="simple-code">import vendor/http/http</pre>
+
+                    <h4>Server Lifecycle</h4>
+
+                    <div class="function-sig">http_server_start(port) → ptr</div>
+                    <p>Start a server bound to <code>0.0.0.0</code>.</p>
+
+                    <div class="function-sig">http_server_start_on(port, host) → ptr</div>
+                    <p>Start a server on a specific host address.</p>
+
+                    <div class="function-sig">http_server_stop(server) → boolean</div>
+                    <p>Stop a running server.</p>
+
+                    <div class="function-sig">http_server_running(server) → boolean</div>
+                    <p>Check whether server is still running.</p>
+
+                    <h4>Routes and Responses</h4>
+
+                    <div class="function-sig">http_server_set_default(server, status, content_type, body) → boolean</div>
+                    <p>Set fallback response for unmatched routes.</p>
+
+                    <div class="function-sig">http_server_get(server, path, body) → boolean</div>
+                    <p>Add a simple GET route with plain-text response.</p>
+
+                    <div class="function-sig">http_server_add_route_html(server, path, html) → boolean</div>
+                    <p>Add a GET route with HTML response.</p>
+
+                    <div class="function-sig">http_server_add_route_json(server, path, json) → boolean</div>
+                    <p>Add a GET route with JSON response.</p>
+
+                    <div class="function-sig">http_server_poll(server, timeout_ms) → int</div>
+                    <p>Run one poll tick; useful for controlled event loops.</p>
+
+                    <div class="function-sig">http_server_serve_forever(server, poll_timeout_ms) → void</div>
+                    <p>Keep polling while the server is running.</p>
+
+                    <pre class="simple-code">server = http_server_start(8080)
+http_server_get(server, "/", "hello from bern http")
+http_server_add_route_json(server, "/health", "{\"ok\":true}")
+http_server_serve_forever(server, 50)</pre>
                 </div>
             </div>
             
@@ -1182,7 +1395,7 @@ write_file("data.txt", content + "\nNew line")</pre>
 
             <h3>System Information</h3>
             <div class="note">
-                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. 
             </div>
             <p>Returns the system the user is running. Useful for bindings.</p>
             <pre class="simple-code">os = get_host_machine()
@@ -1190,7 +1403,7 @@ write_file("data.txt", content + "\nNew line")</pre>
 
 <h3>fmap</h3>
             <div class="note">
-                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. 
             </div>
             <p>Applies a function to each element of a collection. Used too in Algebraic Data Types (ADTs) to modify contained values without breaking functorial context.</p>
             <pre class="simple-code">ast Maybe = Just Int | None
@@ -1202,7 +1415,7 @@ fmap(Just(5), \x -> x * 2)
      <div class="doc-section" id="globals">
             <h2>C Bindings</h2>
             <div class="note">
-                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. (Not Released Yet)
+                <strong>Note:</strong> Only available in Bern versions 0.1.2 and above. 
             </div>
             
             <p>You can call C functions directly from Bern using the foreign function interface (FFI). This allows you to leverage existing C libraries and system calls.<br><br>

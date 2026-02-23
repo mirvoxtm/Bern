@@ -1,0 +1,24 @@
+import vendor/http/http
+
+server = http_server_start(8080)
+
+if server == 0 then
+    print("failed to start HTTP server")
+else
+    default_ok = http_server_set_default(server, HTTP_STATUS_NOT_FOUND, "text/plain; charset=utf-8", "route not found")
+
+    route_root_ok = http_server_get(server, "/", "hello from bern http")
+    route_docs_ok = http_server_add_route_html(server, "/docs", "<h1>Bern HTTP</h1><p>running</p>")
+    route_health_ok = http_server_add_route_json(server, "/health", "{\"ok\":true}")
+
+    print("HTTP server running at http://127.0.0.1:8080 for ~30 seconds")
+
+    ticks = 0
+    for ticks < 600 do
+        poll_result = http_server_poll(server, 50)
+        ticks = ticks + 1
+    end
+
+    stopped_ok = http_server_stop(server)
+    print("HTTP server stopped")
+end

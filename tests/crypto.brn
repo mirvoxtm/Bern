@@ -1,0 +1,23 @@
+import crypto
+import assert
+
+token = crypto_random_token(16)
+assert_equals("crypto token length", :> token, 16)
+
+hexv = crypto_random_hex(8)
+assert_equals("crypto hex length", :> hexv, 16)
+
+assert_equals("crypto compare true", crypto_secure_compare("abc", "abc"), true)
+assert_equals("crypto compare false", crypto_secure_compare("abc", "abd"), false)
+assert_equals("crypto compare false length", crypto_secure_compare("abc", "ab"), false)
+
+digest = crypto_hash32_hex("bern")
+assert_equals("crypto hash length", :> digest, 8)
+
+uuid = crypto_uuid_v4_like()
+assert_equals("crypto uuid length", :> uuid, 36)
+assert_equals("crypto uuid hyphen 1", uuid[8], '-')
+assert_equals("crypto uuid hyphen 2", uuid[13], '-')
+assert_equals("crypto uuid hyphen 3", uuid[18], '-')
+assert_equals("crypto uuid hyphen 4", uuid[23], '-')
+assert_equals("crypto uuid version", uuid[14], '4')

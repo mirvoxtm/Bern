@@ -1,0 +1,74 @@
+import strings
+
+HTTP_STATUS_OK = 200
+HTTP_STATUS_CREATED = 201
+HTTP_STATUS_NO_CONTENT = 204
+HTTP_STATUS_BAD_REQUEST = 400
+HTTP_STATUS_NOT_FOUND = 404
+HTTP_STATUS_INTERNAL_ERROR = 500
+
+def get_http_lib_path() do
+    os = get_host_machine()
+    cwd = get_current_dir()
+    if os == "mingw64" || os == "mingw32" then
+        path = cwd <> "/lib/vendor/http/windows/bern_http.dll"
+        return replace(path, "/", "\\")
+    else if os == "darwin" then
+        return cwd <> "/lib/vendor/http/macos/libbern_http.dylib"
+    else
+        return cwd <> "/lib/vendor/http/linux/libbern_http.so"
+    end
+end
+
+HTTP_LIB_PATH = get_http_lib_path()
+
+foreign bern_http_start(HTTP_LIB_PATH, "int", "string") -> "ptr"
+foreign bern_http_stop(HTTP_LIB_PATH, "ptr") -> "int"
+foreign bern_http_is_running(HTTP_LIB_PATH, "ptr") -> "bool"
+foreign bern_http_set_default_response(HTTP_LIB_PATH, "ptr", "int", "string", "string") -> "int"
+foreign bern_http_add_route(HTTP_LIB_PATH, "ptr", "string", "string", "int", "string", "string") -> "int"
+foreign bern_http_poll_once(HTTP_LIB_PATH, "ptr", "int") -> "int"
+
+def http_server_start(port) do
+    return bern_http_start(port, "0.0.0.0")
+end
+
+def http_server_start_on(port, host) do
+    return bern_http_start(port, host)
+end
+
+def http_server_stop(server) do
+    return bern_http_stop(server) == 1
+end
+
+def http_server_running(server) -> bern_http_is_running(server)
+
+def http_server_set_default(server, status, content_type, body) do
+    return bern_http_set_default_response(server, status, content_type, body) == 1
+end
+
+def http_server_add_route(server, method, path, status, content_type, body) do
+    return bern_http_add_route(server, method, path, status, content_type, body) == 1
+end
+
+def http_server_get(server, path, body) do
+    return http_server_add_route(server, "GET", path, HTTP_STATUS_OK, "text/plain; charset=utf-8", body)
+end
+
+def http_server_add_route_html(server, path, html) do
+    return http_server_add_route(server, "GET", path, HTTP_STATUS_OK, "text/html; charset=utf-8", html)
+end
+
+def http_server_add_route_json(server, path, json) do
+    return http_server_add_route(server, "GET", path, HTTP_STATUS_OK, "application/json; charset=utf-8", json)
+end
+
+def http_server_poll(server, timeout_ms) do
+    return bern_http_poll_once(server, timeout_ms)
+end
+
+def http_server_serve_forever(server, poll_timeout_ms) do
+    for http_server_running(server) do
+        poll_result = http_server_poll(server, poll_timeout_ms)
+    end
+end

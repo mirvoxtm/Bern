@@ -1,0 +1,23 @@
+import url
+import assert
+
+assert_equals("url encode component", url_encode_component("a b&c"), "a%20b%26c")
+assert_equals("url decode component", url_decode_component("a%20b%26c"), "a b&c")
+
+query = build_query([["a", "1"], ["name", "bern lang"]])
+assert_equals("url build query", query, "a=1&name=bern%20lang")
+
+params = parse_query("a=1&name=bern%20lang")
+assert_equals("url parse query a", params["a"], "1")
+assert_equals("url parse query name", params["name"], "bern lang")
+
+parsed = parse_url("http://example.com:8080/docs/api?x=1#top")
+assert_equals("url parse scheme", parsed["scheme"], "http")
+assert_equals("url parse host", parsed["host"], "example.com")
+assert_equals("url parse port", parsed["port"], 8080)
+assert_equals("url parse path", parsed["path"], "/docs/api")
+assert_equals("url parse query", parsed["query"], "x=1")
+assert_equals("url parse fragment", parsed["fragment"], "top")
+
+rebuilt = build_url("https", "example.com", 443, "/hello", "a=1", "frag")
+assert_equals("url build full", rebuilt, "https://example.com/hello?a=1#frag")

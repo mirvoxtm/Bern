@@ -1,0 +1,141 @@
+import core
+import strings
+import random
+
+-- NOTE:
+-- This is a pure-Bern utility module.
+-- It is useful for tokens/checksums, but it is not a replacement for modern
+-- audited cryptographic primitives (AES, SHA-2, ed25519, etc.).
+
+CRYPTO_HEX = "0123456789abcdef"
+CRYPTO_CHAR_TABLE = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:/?&=#%+ "
+
+def crypto_hex_digit(n) do
+    idx = n % 16
+    if idx < 0 then
+        idx = idx + 16
+    end
+    return substring(CRYPTO_HEX, idx, idx + 1)
+end
+
+def crypto_hex_byte(n) do
+    value = n % 256
+    hi = (value / 16) % 16
+    lo = value % 16
+    return crypto_hex_digit(hi) + crypto_hex_digit(lo)
+end
+
+def crypto_random_hex(byte_count) do
+    result = ""
+    i = 0
+    for i < byte_count do
+        result = result + crypto_hex_byte(get_random_int())
+        i = i + 1
+    end
+    return result
+end
+
+def crypto_random_token(length) -> get_random_string(length)
+
+def crypto_random_hex_chars(count) do
+    out = ""
+    i = 0
+    for i < count do
+        out = out + CRYPTO_HEX[get_random_int() % 16]
+        i = i + 1
+    end
+    return out
+end
+
+def crypto_char_value(c) do
+    idx = index_of(CRYPTO_CHAR_TABLE, c)
+    if idx == -1 then
+        return 0
+    else
+        return idx + 1
+    end
+end
+
+def crypto_checksum32(text) do
+    mod = 65521
+    a = 1
+    b = 0
+    i = 0
+
+    for i < length(text) do
+        a = (a + crypto_char_value(text[i])) % mod
+        b = (b + a) % mod
+        i = i + 1
+    end
+
+    return b * 65536 + a
+end
+
+def crypto_u32_to_hex(n) do
+    value = n
+    if value < 0 then
+        value = -value
+    end
+
+    result = ""
+    i = 0
+    for i < 8 do
+        power = 1
+        p = 0
+        target = 7 - i
+        for p < target do
+            power = power * 16
+            p = p + 1
+        end
+        digit = (value / power) % 16
+        result = result + crypto_hex_digit(digit)
+        i = i + 1
+    end
+
+    return result
+end
+
+def crypto_hash32_hex(text) -> crypto_u32_to_hex(crypto_checksum32(text))
+
+def crypto_secure_compare(a, b) do
+    la = length(a)
+    lb = length(b)
+    max_len = la
+    if lb > max_len then
+        max_len = lb
+    end
+
+    diff = 0
+    i = 0
+    for i < max_len do
+        ca = '0'
+        cb = '0'
+        if i < la then
+            ca = a[i]
+        end
+        if i < lb then
+            cb = b[i]
+        end
+        if ca != cb then
+            diff = diff + 1
+        end
+        i = i + 1
+    end
+
+    if la != lb then
+        diff = diff + 1
+    end
+
+    return diff == 0
+end
+
+def crypto_uuid_v4_like() do
+    variants = "89ab"
+    p1 = crypto_random_hex_chars(8)
+    p2 = crypto_random_hex_chars(4)
+    p3 = "4" + crypto_random_hex_chars(3)
+    v = get_random_int() % 4
+    p4 = substring(variants, v, v + 1) + crypto_random_hex_chars(3)
+    p5 = crypto_random_hex_chars(12)
+    return p1 + "-" + p2 + "-" + p3 + "-" + p4 + "-" + p5
+end

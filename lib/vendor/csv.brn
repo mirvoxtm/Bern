@@ -1,20 +1,158 @@
 import core
 import strings
 
-def read_csv(file_name) do
+def read_csv(file_name) -> read_csv(file_name, ",", true, true)
+def read_csv(file_name, delimiter) -> read_csv(file_name, delimiter, true, true)
+def read_csv(file_name, delimiter, has_header) -> read_csv(file_name, delimiter, has_header, true)
+def read_csv(file_name, delimiter, has_header, skip_empty_lines) do
     content = read_file(file_name)
-    lines = split(content, "\n")
-    obj = #{}#
+    return parse_csv(content, delimiter, has_header, skip_empty_lines)
+end
+
+def read_csv_rows(file_name) -> read_csv_rows(file_name, ",", true)
+def read_csv_rows(file_name, delimiter) -> read_csv_rows(file_name, delimiter, true)
+def read_csv_rows(file_name, delimiter, skip_empty_lines) do
+    content = read_file(file_name)
+    return parse_csv_rows(content, delimiter, skip_empty_lines)
+end
+
+def parse_csv(content) -> parse_csv(content, ",", true, true)
+def parse_csv(content, delimiter) -> parse_csv(content, delimiter, true, true)
+def parse_csv(content, delimiter, has_header) -> parse_csv(content, delimiter, has_header, true)
+def parse_csv(content, delimiter, has_header, skip_empty_lines) do
+    rows = parse_csv_rows(content, delimiter, skip_empty_lines)
+    if (has_header) then
+        return transform_csv(rows)
+    else
+        return rows
+    end
+end
+
+def parse_csv_rows(content) -> parse_csv_rows(content, ",", true)
+def parse_csv_rows(content, delimiter) -> parse_csv_rows(content, delimiter, true)
+def parse_csv_rows(content, delimiter, skip_empty_lines) do
+    raw_rows = parse_csv_rows_raw(content, delimiter)
+    if (!skip_empty_lines) then
+        return raw_rows
+    end
+    return remove_empty_rows(raw_rows)
+end
+
+def parse_csv_rows_raw(content, delimiter) do
+    current_delimiter = delimiter
+    if (length(current_delimiter) == 0) then
+        current_delimiter = ","
+    end
+
+    rows = #{}#
+    row = []
+    field = ""
+    row_idx = 0
+    i = 0
+    in_quotes = false
+    content_len = length(content)
+    delimiter_len = length(current_delimiter)
+
+    for i < content_len do
+        ch = content[i]
+
+        if (ch == '"') then
+            if (in_quotes) then
+                next_is_quote = false
+                if (i + 1 < content_len) then
+                    if (content[i + 1] == '"') then
+                        next_is_quote = true
+                    end
+                end
+
+                if (next_is_quote) then
+                    field = field + '"'
+                    i = i + 1
+                else
+                    in_quotes = false
+                end
+            else
+                in_quotes = true
+            end
+        else if (!in_quotes && i + delimiter_len <= content_len && substring(content, i, i + delimiter_len) == current_delimiter) then
+            row = row <> [strip_trailing_carriage_return(field)]
+            field = ""
+            i = i + delimiter_len - 1
+        else if (!in_quotes && ch == '\n') then
+            row = row <> [strip_trailing_carriage_return(field)]
+            rows["" + row_idx] = row
+            row_idx = row_idx + 1
+            row = []
+            field = ""
+        else
+            field = field + ch
+        end
+
+        i = i + 1
+    end
+
+    if ((:> row) > 0 || length(field) > 0) then
+        row = row <> [strip_trailing_carriage_return(field)]
+        rows["" + row_idx] = row
+    end
+
+    return rows
+end
+
+def strip_trailing_carriage_return(s) do
+    if (length(s) > 0) then
+        if (s[length(s) - 1] == '\r') then
+            return substring(s, 0, length(s) - 1)
+        end
+    end
+    return s
+end
+
+def remove_empty_rows(raw_rows) do
+    result = #{}#
+    src_idx = 0
+    dst_idx = 0
+
+    for src_idx < (:> raw_rows) do
+        row = raw_rows["" + src_idx]
+        if (!is_row_empty(row)) then
+            result["" + dst_idx] = row
+            dst_idx = dst_idx + 1
+        end
+        src_idx = src_idx + 1
+    end
+
+    return result
+end
+
+def is_row_empty(row) do
     idx = 0
-    for line in lines do
-        fields = split(line, ",")
-        obj["" + idx] = fields
+    for idx < (:> row) do
+        if (!is_blank_field(row[idx])) then
+            return false
+        end
         idx = idx + 1
     end
-    return transform_csv(obj)
+    return true
+end
+
+def is_blank_field(text) do
+    idx = 0
+    for idx < length(text) do
+        ch = text[idx]
+        if (ch != ' ' && ch != '\n' && ch != '\t' && ch != '\r') then
+            return false
+        end
+        idx = idx + 1
+    end
+    return true
 end
 
 def transform_csv(raw_data) do
+    if ((:> raw_data) == 0) then
+        return #{}#
+    end
+
     headers = raw_data["0"]
     result = #{}#
     idx = 1
@@ -25,7 +163,11 @@ def transform_csv(raw_data) do
         field_idx = 0
         
         for field_idx < (:> headers) do
-            row_obj[headers[field_idx]] = row[field_idx]
+            if (field_idx < (:> row)) then
+                row_obj[headers[field_idx]] = row[field_idx]
+            else
+                row_obj[headers[field_idx]] = ""
+            end
             field_idx = field_idx + 1
         end
         
@@ -36,25 +178,76 @@ def transform_csv(raw_data) do
     return result
 end
 
+def write_csv_from_list(headers, data_list, file_name) -> write_csv_from_list(headers, data_list, file_name, ",")
+
 def write_csv_from_list(headers, data_list, file_name, delimiter) do
-    content = join(headers, delimiter) + "\n"
+    content = serialize_csv_row(headers, delimiter) + "\n"
     
     row_idx = 0
     for row_idx < (:> data_list) do
         data = data_list[row_idx]
-        row = ""
+        row_values = []
         idx = 0
+
         for idx < (:> headers) do
-            row = row + data[idx]
-            if (idx < (:> headers) - 1) then
-                row = row + delimiter
+            if (idx < (:> data)) then
+                row_values = row_values <> [data[idx]]
+            else
+                row_values = row_values <> [""]
             end
             idx = idx + 1
         end
-        row = row + "\n"
-        content = content + row
+
+        content = content + serialize_csv_row(row_values, delimiter) + "\n"
         row_idx = row_idx + 1
     end
     
     write_file(file_name, content)
+end
+
+def write_csv_from_objects(headers, data_object, file_name) -> write_csv_from_objects(headers, data_object, file_name, ",")
+
+def write_csv_from_objects(headers, data_object, file_name, delimiter) do
+    rows = []
+    row_idx = 0
+
+    for row_idx < (:> data_object) do
+        row_obj = data_object["" + row_idx]
+        row = []
+        header_idx = 0
+
+        for header_idx < (:> headers) do
+            key = headers[header_idx]
+            row = row <> [row_obj[key]]
+            header_idx = header_idx + 1
+        end
+
+        rows = rows <> [row]
+        row_idx = row_idx + 1
+    end
+
+    write_csv_from_list(headers, rows, file_name, delimiter)
+end
+
+def serialize_csv_row(row_values, delimiter) do
+    escaped_values = []
+    idx = 0
+
+    for idx < (:> row_values) do
+        escaped_values = escaped_values <> [escape_csv_field(row_values[idx], delimiter)]
+        idx = idx + 1
+    end
+
+    return join(escaped_values, delimiter)
+end
+
+def escape_csv_field(value, delimiter) do
+    text = "" + value
+    escaped = replace(text, "\"", "\"\"")
+
+    if (contains(text, delimiter) || contains(text, "\"") || contains(text, "\n") || contains(text, "\r")) then
+        return "\"" + escaped + "\""
+    else
+        return escaped
+    end
 end

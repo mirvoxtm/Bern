@@ -1,0 +1,17 @@
+import path
+import assert
+
+assert_equals("path join basic", path_join("a", "b"), "a/b")
+assert_equals("path join trims slash", path_join("a/", "/b"), "a/b")
+assert_equals("path join many", path_join_many(["a", "b", "c"]), "a/b/c")
+
+assert_equals("path normalize relative", path_normalize("a/./b/../c"), "a/c")
+assert_equals("path normalize absolute", path_normalize("/a//b/../c"), "/a/c")
+
+assert_equals("path basename", path_basename("/tmp/file.txt"), "file.txt")
+assert_equals("path dirname", path_dirname("/tmp/file.txt"), "/tmp")
+assert_equals("path extname", path_extname("file.txt"), ".txt")
+assert_equals("path stem", path_stem("file.txt"), "file")
+
+assert_equals("path absolute linux", path_is_absolute("/usr/bin"), true)
+assert_equals("path absolute windows style", path_is_absolute("C:/Users"), true)

@@ -3,6 +3,9 @@ module Main where
 import System.IO (hFlush, hSetBuffering, BufferMode(NoBuffering), stdout, stdin, BufferMode( LineBuffering ))
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
+import System.Directory (doesFileExist, getCurrentDirectory)
+import System.FilePath ((</>))
+import GHC.IO.Encoding (setLocaleEncoding, utf8)
 import Language.Ast
 import Language.Eval
 import Data.Hashtable.Hashtable
@@ -15,17 +18,41 @@ initialTable = emptyHashtable
 
 main :: IO ()
 main = do
+  setLocaleEncoding utf8
   hSetBuffering stdout NoBuffering
   hSetBuffering stdin LineBuffering
   args <- getArgs
   case args of
+    ["."]      -> runMainBrn
+    ["help"]   -> printHelp
     [filename] -> runFile filename
     []         -> do 
       printWelcome
       putStrLn ""
       repl initialTable
-    _ -> putStrLn "Usage: bern [filename.brn]"
+    _ -> putStrLn "Usage: bern [filename.brn | help]"
 
+runMainBrn :: IO ()
+runMainBrn = do
+  cwd <- getCurrentDirectory
+  let mainFile = cwd </> "main.brn"
+  exists <- doesFileExist mainFile
+  if exists
+    then runFile mainFile
+    else do
+      putStrLn "Error: No main.brn found in current directory."
+      exitFailure
+
+printHelp :: IO ()
+printHelp = do
+  putStrLn "Usage: bern [filename.brn | help]"
+  putStrLn ""
+  putStrLn "Commands:"
+  putStrLn "  bern              Start the REPL"
+  putStrLn "  bern .            Run ./main.brn from the current directory"
+  putStrLn "  bern <file.brn>   Run a Bern source file"
+  putStrLn "  bern help         Show this message"
+      
 printWelcome :: IO ()
 printWelcome = do
   let purple = "\x1b[35m"

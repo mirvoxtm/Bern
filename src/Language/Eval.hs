@@ -105,16 +105,8 @@ interpretCommand mpos (Print expr) table =
 
 interpretCommand mpos (Assign name expr) table =
     case evaluate expr table of
-        Right v@(Integer _)   -> return (insertHashtable table name v)
-        Right v@(Double _)    -> return (insertHashtable table name v)
-        Right v@(Boolean _)   -> return (insertHashtable table name v)
-        Right v@(Character _) -> return (insertHashtable table name v)
-        Right v@(List _ _)    -> return (insertHashtable table name v)
-        Right v@(Set _ _)     -> return (insertHashtable table name v)
-        Right v@(Object _)    -> return (insertHashtable table name v)
-        Right v@(Function _)  -> return (insertHashtable table name v)
-        Right v@(Lambda _)    -> return (insertHashtable table name v)
-        Right v@(AlgebraicDataType _ _) -> return (insertHashtable table name v)
+        Right v -> return (insertHashtable table name v)
+        Left err -> die err
 
 interpretCommand mpos (GlobalAssign name expr) table =
     case evaluate expr table of
@@ -343,6 +335,8 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = 
     typeStringToBernCType "Float" = FFI.BernFloat
     typeStringToBernCType "Short" = FFI.BernShort
     typeStringToBernCType "UShort" = FFI.BernUShort
+    typeStringToBernCType "Ptr" = FFI.BernPtr
+    typeStringToBernCType "Pointer" = FFI.BernPtr
     typeStringToBernCType _ = FFI.BernVoid
 
 interpretCommand mpos (Import moduleName) table = do

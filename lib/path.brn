@@ -1,0 +1,250 @@
+import core
+import strings
+
+def path_sep() do
+    return "/"
+end
+
+def path_normalize_separators(path) -> path
+
+def path_drive_prefix(path) do
+    p = path_normalize_separators(path)
+    if length(p) >= 2 then
+        if p[1] == ':' then
+            return substring(p, 0, 2)
+        else
+            return ""
+        end
+    else
+        return ""
+    end
+end
+
+def path_is_absolute(path) do
+    p = path_normalize_separators(path)
+    if starts_with(p, "/") then
+        return true
+    else
+        if length(p) >= 2 then
+            return p[1] == ':'
+        else
+            return false
+        end
+    end
+end
+
+def path_trim_trailing_separator(path) do
+    p = path_normalize_separators(path)
+    if length(p) <= 1 then
+        return p
+    else
+        if ends_with(p, "/") then
+            return path_trim_trailing_separator(substring(p, 0, length(p) - 1))
+        else
+            return p
+        end
+    end
+end
+
+def path_join(left, right) do
+    l = path_normalize_separators(left)
+    r = path_normalize_separators(right)
+
+    if l == "" then
+        return r
+    end
+
+    if r == "" then
+        return l
+    end
+
+    l = path_trim_trailing_separator(l)
+    if starts_with(r, "/") then
+        r = substring(r, 1, length(r))
+    end
+
+    return l + "/" + r
+end
+
+def path_join_many([]) -> ""
+def path_join_many([head|tail]) do
+    result = head
+    i = 0
+    for i < length(tail) do
+        result = path_join(result, tail[i])
+        i = i + 1
+    end
+    return result
+end
+
+def path_split(path) do
+    raw = split(path_normalize_separators(path), "/")
+    parts = []
+    i = 0
+    for i < length(raw) do
+        part = raw[i]
+        if part != "" then
+            parts = parts <> [part]
+        end
+        i = i + 1
+    end
+    return parts
+end
+
+def path_basename(path) do
+    p = path_trim_trailing_separator(path)
+    parts = path_split(p)
+    if length(parts) == 0 then
+        if path_is_absolute(p) then
+            return "/"
+        else
+            return ""
+        end
+    else
+        return parts[length(parts) - 1]
+    end
+end
+
+def path_dirname(path) do
+    p = path_trim_trailing_separator(path)
+    norm = path_normalize_separators(p)
+    parts = path_split(norm)
+    abs = path_is_absolute(norm)
+    drive = path_drive_prefix(norm)
+
+    if length(parts) <= 1 then
+        if drive != "" then
+            return drive + "/"
+        else
+            if abs then
+                return "/"
+            else
+                return "."
+            end
+        end
+    end
+
+    parent_parts = take(length(parts) - 1, parts)
+
+    if drive != "" then
+        if length(parent_parts) == 0 then
+            return drive + "/"
+        end
+
+        if parent_parts[0] == drive then
+            if length(parent_parts) == 1 then
+                return drive + "/"
+            else
+                rest = drop(1, parent_parts)
+                return drive + "/" + join(rest, "/")
+            end
+        else
+            return drive + "/" + join(parent_parts, "/")
+        end
+    else
+        parent = join(parent_parts, "/")
+        if abs then
+            return "/" + parent
+        else
+            return parent
+        end
+    end
+end
+
+def path_find_last_char(s, ch) do
+    i = length(s) - 1
+    for i >= 0 do
+        if s[i] == ch then
+            return i
+        end
+        i = i - 1
+    end
+    return -1
+end
+
+def path_extname(path) do
+    base = path_basename(path)
+    dot = path_find_last_char(base, '.')
+    if dot <= 0 then
+        return ""
+    else
+        return substring(base, dot, length(base))
+    end
+end
+
+def path_stem(path) do
+    base = path_basename(path)
+    ext = path_extname(path)
+    if ext == "" then
+        return base
+    else
+        return substring(base, 0, length(base) - length(ext))
+    end
+end
+
+def path_normalize(path) do
+    p = path_normalize_separators(path)
+    if p == "" then
+        return "."
+    end
+
+    abs = path_is_absolute(p)
+    drive = path_drive_prefix(p)
+    raw_parts = split(p, "/")
+    stack = []
+    i = 0
+
+    for i < length(raw_parts) do
+        part = raw_parts[i]
+
+        if part == "" || part == "." then
+            skip = 0
+        else if part == ".." then
+            if length(stack) > 0 then
+                last = stack[length(stack) - 1]
+                if last != ".." then
+                    stack = take(length(stack) - 1, stack)
+                else
+                    if !abs then
+                        stack = stack <> [".."]
+                    end
+                end
+            else
+                if !abs then
+                    stack = stack <> [".."]
+                end
+            end
+        else
+            stack = stack <> [part]
+        end
+
+        i = i + 1
+    end
+
+    if drive != "" then
+        if length(stack) > 0 then
+            if stack[0] == drive then
+                stack = drop(1, stack)
+            end
+        end
+    end
+
+    rebuilt = join(stack, "/")
+    if drive != "" then
+        if rebuilt == "" then
+            return drive + "/"
+        else
+            return drive + "/" + rebuilt
+        end
+    else
+        if abs then
+            return "/" + rebuilt
+        else
+            if rebuilt == "" then
+                return "."
+            else
+                return rebuilt
+            end
+        end
+    end
+end

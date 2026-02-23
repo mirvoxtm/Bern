@@ -1,30 +1,17 @@
 import vendor/raylib/raylib
 
--- Simple rainbow test - draws all the color constants
-
 def main() do
     InitWindow(800, 600, "Bern Raylib - Color Test")
     SetTargetFPS(60)
     
-    print("===============================")
-    print("BERN RAYLIB COLOR TEST")
-    print("Testing all color constants...")
-    print("If you see a rainbow of colors")
-    print("with NO BLINKING, the FFI fix")
-    print("is working perfectly!")
-    print("===============================")
-    
     for !WindowShouldClose() do
         BeginDrawing()
         
-        -- Background
         ClearBackground(RL_RAYWHITE)
         
-        -- Title
         DrawText("COLOR CONSTANT TEST", 250, 30, 30, RL_BLACK)
         DrawText("All colors should be stable (no blinking!)", 180, 70, 20, RL_DARKGRAY)
         
-        -- Draw colored rectangles testing each color constant
         y_pos = 120
         DrawRectangle(50, y_pos, 150, 40, RL_RED)
         DrawText("RL_RED", 220, y_pos + 10, 20, RL_RED)
@@ -74,22 +61,11 @@ def main() do
         DrawRectangle(450, y_pos, 150, 40, RL_VIOLET)
         DrawText("RL_VIOLET", 620, y_pos + 10, 20, RL_VIOLET)
         
-        -- Bottom status
         DrawText("Press ESC to exit", 300, 550, 20, RL_DARKGRAY)
-        
-        -- FPS counter
         DrawFPS(10, 10)
         
         EndDrawing()
     end
-    
-    print("===============================")
-    print("TEST COMPLETE!")
-    print("If all colors displayed without")
-    print("blinking or flickering, then")
-    print("the FFI struct-by-value fix is")
-    print("working correctly!")
-    print("===============================")
     
     CloseWindow()
 end

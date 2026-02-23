@@ -37,6 +37,7 @@ data BernCType
     | BernBool          -- 8-bit bool
     | BernChar          -- 8-bit char
     | BernString        -- char*
+    | BernPtr           -- opaque pointer/handle (void*)
     | BernVoid          -- void
     | BernByte          -- 8-bit unsigned (uint8_t / unsigned char)
     | BernShort         -- 16-bit signed short
@@ -83,6 +84,7 @@ getFieldSize BernInt = 4      -- 32-bit int
 getFieldSize BernDouble = 8   -- 64-bit double
 getFieldSize BernBool = 1     -- 8-bit bool
 getFieldSize BernChar = 1     -- 8-bit char
+getFieldSize BernPtr = sizeOf (nullPtr :: Ptr ())
 getFieldSize BernByte = 1     -- 8-bit unsigned char
 getFieldSize BernShort = 2    -- 16-bit short
 getFieldSize BernUShort = 2   -- 16-bit unsigned short
@@ -97,6 +99,8 @@ typeToCType TDouble = BernDouble
 typeToCType TBool = BernBool
 typeToCType TChar = BernChar
 typeToCType TString = BernString
+typeToCType (TCustom "Ptr") = BernPtr
+typeToCType (TCustom "Pointer") = BernPtr
 typeToCType (TCustom "Byte") = BernByte
 typeToCType (TCustom "UChar") = BernByte
 typeToCType (TCustom "Short") = BernShort
@@ -157,6 +161,9 @@ parseType "uchar"  = Just BernByte
 parseType "short"  = Just BernShort
 parseType "ushort" = Just BernUShort
 parseType "string" = Just BernString
+parseType "ptr"    = Just BernPtr
+parseType "pointer" = Just BernPtr
+parseType "void*"  = Just BernPtr
 parseType "void"   = Just BernVoid
 parseType typeName = Just (BernStruct typeName)
 
@@ -436,6 +443,12 @@ valueToFFIArg BernString val = do
         Nothing -> 
             return $ FFI.argPtr nullPtr
 
+valueToFFIArg BernPtr (Integer n) =
+    let ptr = intPtrToPtr (fromIntegral n :: IntPtr)
+    in return $ FFI.argPtr (ptr :: Ptr ())
+valueToFFIArg BernPtr Undefined =
+    return $ FFI.argPtr nullPtr
+
 valueToFFIArg (BernStruct typeName) (AlgebraicDataType name values)
     | typeName == name = do
         maybeLayout <- getStructLayout typeName
@@ -509,7 +522,12 @@ callCFunctionUniversal funPtr argTypes retType args = do
                         else do
                             str <- peekCString cstrPtr
                             return $ List (map Character str) (length str)
-                
+
+                BernPtr -> do
+                    (rawPtr :: Ptr Word8) <- FFI.callFFI (castPtrToFunPtr funPtr) (FFI.retPtr FFI.retWord8) ffiArgs
+                    let asInt = fromIntegral (ptrToIntPtr (castPtr rawPtr :: Ptr ()))
+                    return $ Integer asInt
+                 
                 BernStruct typeName -> do
                     (structPtr :: Ptr Word8) <- FFI.callFFI (castPtrToFunPtr funPtr) (FFI.retPtr FFI.retWord8) ffiArgs
                     if structPtr == nullPtr

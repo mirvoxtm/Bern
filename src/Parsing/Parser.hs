@@ -458,8 +458,8 @@ parseElseChain :: Parser Command
 parseElseChain = try parseElseIf <|> parseElseOnly <|> parseNoElse
   where
     parseElseIf = do
-        _ <- symbol "else"
-        _ <- symbol "if"
+        _ <- L.symbol scn "else"
+        _ <- symbolNoNl "if"
         cond <- parseExpression
         _ <- symbol "then"
         thenCmd <- parseBlockCommands

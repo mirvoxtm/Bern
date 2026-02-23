@@ -1,0 +1,315 @@
+import core
+import strings
+
+def url_find_substring(s, sub) do
+    sub_len = length(sub)
+    s_len = length(s)
+
+    if sub_len == 0 then
+        return 0
+    end
+
+    i = 0
+    for i <= s_len - sub_len do
+        if substring(s, i, i + sub_len) == sub then
+            return i
+        end
+        i = i + 1
+    end
+    return -1
+end
+
+def url_find_char(s, ch) do
+    i = 0
+    for i < length(s) do
+        if s[i] == ch then
+            return i
+        end
+        i = i + 1
+    end
+    return -1
+end
+
+def url_default_port("http") -> 80
+def url_default_port("https") -> 443
+def url_default_port(_) -> -1
+
+def url_is_digits(text) do
+    if text == "" then
+        return false
+    end
+
+    i = 0
+    for i < length(text) do
+        if index_of("0123456789", text[i]) == -1 then
+            return false
+        end
+        i = i + 1
+    end
+    return true
+end
+
+def url_is_unreserved_char(c) do
+    allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~"
+    return index_of(allowed, c) != -1
+end
+
+def url_percent_encode_char(c) do
+    if c == ' ' then return "%20"
+    else if c == '!' then return "%21"
+    else if c == '"' then return "%22"
+    else if c == '#' then return "%23"
+    else if c == '$' then return "%24"
+    else if c == '%' then return "%25"
+    else if c == '&' then return "%26"
+    else if c == '\'' then return "%27"
+    else if c == '(' then return "%28"
+    else if c == ')' then return "%29"
+    else if c == '*' then return "%2A"
+    else if c == '+' then return "%2B"
+    else if c == ',' then return "%2C"
+    else if c == '/' then return "%2F"
+    else if c == ':' then return "%3A"
+    else if c == ';' then return "%3B"
+    else if c == '=' then return "%3D"
+    else if c == '?' then return "%3F"
+    else if c == '@' then return "%40"
+    else if c == '[' then return "%5B"
+    else if c == ']' then return "%5D"
+    else if c == '^' then return "%5E"
+    else if c == '{' then return "%7B"
+    else if c == '|' then return "%7C"
+    else if c == '}' then return "%7D"
+    else if c == '\\' then return "%5C"
+    else
+        return "%3F"
+    end
+end
+
+def url_decode_hex_pair(hex) do
+    code = to_upper(hex)
+    if code == "20" then return " "
+    else if code == "21" then return "!"
+    else if code == "22" then return "\""
+    else if code == "23" then return "#"
+    else if code == "24" then return "$"
+    else if code == "25" then return "%"
+    else if code == "26" then return "&"
+    else if code == "27" then return "'"
+    else if code == "28" then return "("
+    else if code == "29" then return ")"
+    else if code == "2A" then return "*"
+    else if code == "2B" then return "+"
+    else if code == "2C" then return ","
+    else if code == "2F" then return "/"
+    else if code == "3A" then return ":"
+    else if code == "3B" then return ";"
+    else if code == "3D" then return "="
+    else if code == "3F" then return "?"
+    else if code == "40" then return "@"
+    else if code == "5B" then return "["
+    else if code == "5C" then return "\\"
+    else if code == "5D" then return "]"
+    else if code == "5E" then return "^"
+    else if code == "7B" then return "{"
+    else if code == "7C" then return "|"
+    else if code == "7D" then return "}"
+    else
+        return "%"
+    end
+end
+
+def url_encode_component(text) do
+    result = ""
+    i = 0
+    for i < length(text) do
+        c = text[i]
+        if url_is_unreserved_char(c) then
+            result = result + c
+        else
+            result = result + url_percent_encode_char(c)
+        end
+        i = i + 1
+    end
+    return result
+end
+
+def url_decode_component(text) do
+    result = ""
+    i = 0
+    n = length(text)
+
+    for i < n do
+        c = text[i]
+        if c == '%' then
+            if i + 2 < n then
+                pair = substring(text, i + 1, i + 3)
+                result = result + url_decode_hex_pair(pair)
+                i = i + 3
+            else
+                result = result + "%"
+                i = i + 1
+            end
+        else if c == '+' then
+            result = result + " "
+            i = i + 1
+        else
+            result = result + c
+            i = i + 1
+        end
+    end
+
+    return result
+end
+
+def parse_query(query) do
+    params = #{}#
+    if query == "" then
+        return params
+    end
+
+    pairs = split(query, "&")
+    i = 0
+    for i < length(pairs) do
+        pair = pairs[i]
+        eq_idx = url_find_substring(pair, "=")
+
+        if eq_idx == -1 then
+            key = url_decode_component(pair)
+            params[key] = ""
+        else
+            key = url_decode_component(substring(pair, 0, eq_idx))
+            value = url_decode_component(substring(pair, eq_idx + 1, length(pair)))
+            params[key] = value
+        end
+
+        i = i + 1
+    end
+
+    return params
+end
+
+def build_query(pairs) do
+    q = ""
+    i = 0
+    for i < length(pairs) do
+        pair = pairs[i]
+        key = pair[0] + ""
+        value = pair[1] + ""
+        item = url_encode_component(key) + "=" + url_encode_component(value)
+        if q == "" then
+            q = item
+        else
+            q = q + "&" + item
+        end
+        i = i + 1
+    end
+    return q
+end
+
+def parse_url(url_text) do
+    working = url_text
+    scheme = ""
+    host = ""
+    port = -1
+    path = "/"
+    query = ""
+    fragment = ""
+
+    frag_idx = url_find_substring(working, "#")
+    if frag_idx != -1 then
+        fragment = substring(working, frag_idx + 1, length(working))
+        working = substring(working, 0, frag_idx)
+    end
+
+    query_idx = url_find_substring(working, "?")
+    if query_idx != -1 then
+        query = substring(working, query_idx + 1, length(working))
+        working = substring(working, 0, query_idx)
+    end
+
+    scheme_idx = url_find_substring(working, "://")
+    authority_and_path = working
+    if scheme_idx != -1 then
+        scheme = to_lower(substring(working, 0, scheme_idx))
+        authority_and_path = substring(working, scheme_idx + 3, length(working))
+    end
+
+    slash_idx = url_find_char(authority_and_path, '/')
+    authority = authority_and_path
+    if slash_idx != -1 then
+        authority = substring(authority_and_path, 0, slash_idx)
+        path = substring(authority_and_path, slash_idx, length(authority_and_path))
+    end
+
+    if authority != "" then
+        colon_idx = url_find_substring(authority, ":")
+        if colon_idx == -1 then
+            host = authority
+            port = url_default_port(scheme)
+        else
+            host = substring(authority, 0, colon_idx)
+            port_text = substring(authority, colon_idx + 1, length(authority))
+            if url_is_digits(port_text) then
+                port = to_int(port_text)
+            else
+                port = url_default_port(scheme)
+            end
+        end
+    else
+        port = url_default_port(scheme)
+    end
+
+    if path == "" then
+        path = "/"
+    end
+
+    return #{
+        scheme: scheme,
+        host: host,
+        port: port,
+        path: path,
+        query: query,
+        fragment: fragment
+    }#
+end
+
+def build_url(scheme, host, port, path, query, fragment) do
+    text = ""
+    normalized_scheme = to_lower(scheme + "")
+    if normalized_scheme != "" then
+        text = normalized_scheme + "://"
+    end
+
+    text = text + host
+    default_port = url_default_port(normalized_scheme)
+    if port > 0 then
+        if default_port == -1 then
+            text = text + ":" + from_int(port)
+        else
+            if port != default_port then
+                text = text + ":" + from_int(port)
+            end
+        end
+    end
+
+    if path == "" then
+        text = text + "/"
+    else
+        if starts_with(path, "/") then
+            text = text + path
+        else
+            text = text + "/" + path
+        end
+    end
+
+    if query != "" then
+        text = text + "?" + query
+    end
+
+    if fragment != "" then
+        text = text + "#" + fragment
+    end
+
+    return text
+end
