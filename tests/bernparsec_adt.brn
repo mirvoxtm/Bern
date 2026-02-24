@@ -1,0 +1,41 @@
+import vendor/bernparsec
+import assert
+
+r_ok = parseADT(decimal(), "adt_ok", "123xyz")
+assert_equals("parseADT ok ctor", ::r_ok, "BPOk")
+r_ok_obj = result_from_adt(r_ok)
+assert_equals("parseADT ok value", r_ok_obj["value"], 123)
+assert_equals("parseADT ok index", r_ok_obj["state"]["index"], 3)
+
+r_fail = parseADT(before(string("ok"), eof()), "adt_fail", "ok!")
+assert_equals("parseADT fail ctor", ::r_fail, "BPErr")
+assert_equals("parseADT fail pretty", ::errorBundlePretty(r_fail), "List")
+
+state_adt = BPState("abc", "state_test", 1, 1, 2)
+r_state = parse_state(char('b'), state_adt)
+assert_equals("BPState accepted by parse_state", r_state["ok"], true)
+assert_equals("BPState parse index", r_state["state"]["index"], 2)
+
+r_parser_adt = parse(BPBefore(BPString("hi"), BPEof()), "parser_adt", "hi")
+assert_equals("BPParser parse ok", r_parser_adt["ok"], true)
+assert_equals("BPParser parse value", r_parser_adt["value"], "hi")
+
+r_opt_hit = parse(optionalADT(char('x')), "opt_hit", "xyz")
+opt_hit = r_opt_hit["value"]
+assert_equals("optionalADT hit ctor", ::opt_hit, "BPJust")
+opt_hit_obj = maybe_from_adt(opt_hit)
+assert_equals("optionalADT hit value", opt_hit_obj["value"], 'x')
+
+r_opt_miss = parse(optionalADT(char('x')), "opt_miss", "abc")
+opt_miss = r_opt_miss["value"]
+assert_equals("optionalADT miss ctor", ::opt_miss, "BPNothing")
+
+def plus_fold(lhs, op, rhs) -> lhs + rhs
+r_chain_adt = parse(BPChainL1(decimal(), BPChar('+'), plus_fold), "chain_adt", "1+2+30")
+assert_equals("BPChainL1 parse ok", r_chain_adt["ok"], true)
+assert_equals("BPChainL1 parse value", r_chain_adt["value"], 33)
+
+def nested_adt() -> BPOrElse(decimal(), BPBetween(BPChar('('), BPChar(')'), BPLazy(nested_adt)))
+r_lazy_adt = parse(BPBefore(BPLazy(nested_adt), BPEof()), "lazy_adt", "(((7)))")
+assert_equals("BPLazy parse ok", r_lazy_adt["ok"], true)
+assert_equals("BPLazy parse value", r_lazy_adt["value"], 7)

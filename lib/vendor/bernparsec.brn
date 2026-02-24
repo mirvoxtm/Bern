@@ -1,0 +1,908 @@
+import core
+import strings
+
+LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz"
+UPPER_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+DIGITS = "0123456789"
+WHITESPACE = " \t\n\r"
+
+adt BPParser = BPPure Any | BPFail String | BPSatisfy Any String | BPAnySingle | BPChar Char | BPOneOf String | BPNoneOf String | BPString String | BPEof | BPMap Any Any | BPBind Any Any | BPThen Any Any | BPBefore Any Any | BPLabel Any String | BPOrElse Any Any | BPChoice List | BPMany Any | BPSome Any | BPCount Int Any | BPOptional Any | BPBetween Any Any Any | BPSepBy Any Any | BPSepBy1 Any Any | BPManyTill Any Any | BPLookAhead Any | BPNotFollowedBy Any | BPLazy Any | BPChainL1 Any Any Any | BPFloat | BPSigned Any
+adt BPStateType = BPState String String Int Int Int
+adt BPResultType = BPOk Any BPState | BPErr List String BPState
+adt BPMaybeType = BPJust Any | BPNothing
+
+def mk_state(input, source_name) do
+    state = #{}#
+    state["input"] = input
+    state["source"] = source_name
+    state["index"] = 0
+    state["line"] = 1
+    state["column"] = 1
+    return state
+end
+
+def at_end(state) -> state["index"] >= length(state["input"])
+
+def current_char(state) do
+    if (at_end(state)) then
+        return false
+    end
+    return state["input"][state["index"]]
+end
+
+def char_to_string(c) -> "" + c
+
+def advance_state_char(state, ch) do
+    next_state = #{}#
+    next_state["input"] = state["input"]
+    next_state["source"] = state["source"]
+    next_state["index"] = state["index"] + 1
+    if (ch == '\n') then
+        next_state["line"] = state["line"] + 1
+        next_state["column"] = 1
+    else
+        next_state["line"] = state["line"]
+        next_state["column"] = state["column"] + 1
+    end
+    return next_state
+end
+
+def consumed(from_state, to_state) -> to_state["index"] > from_state["index"]
+
+def ok_result(value, state) do
+    result = #{}#
+    result["ok"] = true
+    result["value"] = value
+    result["state"] = state
+    result["expected"] = []
+    result["message"] = ""
+    return result
+end
+
+def err_result(expected, message, state) do
+    result = #{}#
+    result["ok"] = false
+    result["value"] = false
+    result["state"] = state
+    result["expected"] = expected
+    result["message"] = message
+    return result
+end
+
+def append_unique(list, value) do
+    if (index_of(list, value) == -1) then
+        return list <> [value]
+    end
+    return list
+end
+
+def merge_expected(left, right) do
+    merged = left
+    idx = 0
+    for idx < (:> right) do
+        merged = append_unique(merged, right[idx])
+        idx = idx + 1
+    end
+    return merged
+end
+
+def merge_failures(a, b) do
+    pos_a = a["state"]["index"]
+    pos_b = b["state"]["index"]
+    if (pos_a > pos_b) then
+        return a
+    else if (pos_b > pos_a) then
+        return b
+    else
+        merged_expected = merge_expected(a["expected"], b["expected"])
+        merged_message = a["message"]
+        if (length(merged_message) == 0) then
+            merged_message = b["message"]
+        end
+        return err_result(merged_expected, merged_message, a["state"])
+    end
+end
+
+def mk_parser(kind) do
+    parser = #{}#
+    parser["kind"] = kind
+    return parser
+end
+
+def pure(value) do
+    parser = mk_parser("pure")
+    parser["value"] = value
+    return parser
+end
+
+def fail_parser(message) do
+    parser = mk_parser("fail")
+    parser["message"] = message
+    return parser
+end
+
+def satisfy(pred) -> satisfy(pred, "token")
+def satisfy(pred, expected_label) do
+    parser = mk_parser("satisfy")
+    parser["pred"] = pred
+    parser["expected"] = expected_label
+    return parser
+end
+
+def anySingle() -> mk_parser("anySingle")
+
+def char(c) do
+    parser = mk_parser("char")
+    parser["char"] = c
+    return parser
+end
+
+def oneOf(chars) do
+    parser = mk_parser("oneOf")
+    parser["chars"] = chars
+    return parser
+end
+
+def noneOf(chars) do
+    parser = mk_parser("noneOf")
+    parser["chars"] = chars
+    return parser
+end
+
+def string(token) do
+    parser = mk_parser("string")
+    parser["token"] = token
+    return parser
+end
+
+def eof() -> mk_parser("eof")
+
+def mapP(parser, mapper) do
+    result = mk_parser("mapP")
+    result["parser"] = parser
+    result["mapper"] = mapper
+    return result
+end
+
+def bind(parser, to_parser) do
+    result = mk_parser("bind")
+    result["parser"] = parser
+    result["to_parser"] = to_parser
+    return result
+end
+
+def thenP(left, right) do
+    parser = mk_parser("thenP")
+    parser["left"] = left
+    parser["right"] = right
+    return parser
+end
+
+def before(left, right) do
+    parser = mk_parser("before")
+    parser["left"] = left
+    parser["right"] = right
+    return parser
+end
+
+def try(parser) -> parser
+
+def label(parser, expected_label) do
+    result = mk_parser("label")
+    result["parser"] = parser
+    result["expected_label"] = expected_label
+    return result
+end
+
+def orElse(left, right) do
+    parser = mk_parser("orElse")
+    parser["left"] = left
+    parser["right"] = right
+    return parser
+end
+
+def choice(parsers) do
+    parser = mk_parser("choice")
+    parser["parsers"] = parsers
+    return parser
+end
+
+def many(parser) do
+    result = mk_parser("many")
+    result["parser"] = parser
+    return result
+end
+
+def some(parser) do
+    result = mk_parser("some")
+    result["parser"] = parser
+    return result
+end
+
+def count(n, parser) do
+    result = mk_parser("count")
+    result["n"] = n
+    result["parser"] = parser
+    return result
+end
+
+def optional(parser) do
+    result = mk_parser("optional")
+    result["parser"] = parser
+    return result
+end
+
+def between(open_parser, close_parser, parser) do
+    result = mk_parser("between")
+    result["open"] = open_parser
+    result["close"] = close_parser
+    result["parser"] = parser
+    return result
+end
+
+def sepBy(parser, separator) do
+    result = mk_parser("sepBy")
+    result["parser"] = parser
+    result["separator"] = separator
+    return result
+end
+
+def sepBy1(parser, separator) do
+    result = mk_parser("sepBy1")
+    result["parser"] = parser
+    result["separator"] = separator
+    return result
+end
+
+def manyTill(parser, end_parser) do
+    result = mk_parser("manyTill")
+    result["parser"] = parser
+    result["end_parser"] = end_parser
+    return result
+end
+
+def lookAhead(parser) do
+    result = mk_parser("lookAhead")
+    result["parser"] = parser
+    return result
+end
+
+def notFollowedBy(parser) do
+    result = mk_parser("notFollowedBy")
+    result["parser"] = parser
+    return result
+end
+
+def lazy(thunk) do
+    parser = mk_parser("lazy")
+    parser["thunk"] = thunk
+    return parser
+end
+
+def chainl1(term_parser, op_parser, combine) do
+    parser = mk_parser("chainl1")
+    parser["term"] = term_parser
+    parser["op"] = op_parser
+    parser["combine"] = combine
+    return parser
+end
+
+def is_bp_parser(value) do
+    t = ::value
+    return t == "BPPure" || t == "BPFail" || t == "BPSatisfy" || t == "BPAnySingle" || t == "BPChar" || t == "BPOneOf" || t == "BPNoneOf" || t == "BPString" || t == "BPEof" || t == "BPMap" || t == "BPBind" || t == "BPThen" || t == "BPBefore" || t == "BPLabel" || t == "BPOrElse" || t == "BPChoice" || t == "BPMany" || t == "BPSome" || t == "BPCount" || t == "BPOptional" || t == "BPBetween" || t == "BPSepBy" || t == "BPSepBy1" || t == "BPManyTill" || t == "BPLookAhead" || t == "BPNotFollowedBy" || t == "BPLazy" || t == "BPChainL1" || t == "BPFloat" || t == "BPSigned"
+end
+
+def parser_from_adt(BPPure(value)) -> pure(value)
+def parser_from_adt(BPFail(message)) -> fail_parser(message)
+def parser_from_adt(BPSatisfy(pred, expected)) -> satisfy(pred, expected)
+def parser_from_adt(BPAnySingle()) -> anySingle()
+def parser_from_adt(BPChar(c)) -> char(c)
+def parser_from_adt(BPOneOf(chars)) -> oneOf(chars)
+def parser_from_adt(BPNoneOf(chars)) -> noneOf(chars)
+def parser_from_adt(BPString(token)) -> string(token)
+def parser_from_adt(BPEof()) -> eof()
+def parser_from_adt(BPMap(parser, mapper)) -> mapP(parser_from_adt(parser), mapper)
+def parser_from_adt(BPBind(parser, to_parser)) -> bind(parser_from_adt(parser), to_parser)
+def parser_from_adt(BPThen(left, right)) -> thenP(parser_from_adt(left), parser_from_adt(right))
+def parser_from_adt(BPBefore(left, right)) -> before(parser_from_adt(left), parser_from_adt(right))
+def parser_from_adt(BPLabel(parser, expected)) -> label(parser_from_adt(parser), expected)
+def parser_from_adt(BPOrElse(left, right)) -> orElse(parser_from_adt(left), parser_from_adt(right))
+def parser_from_adt(BPChoice(parsers)) -> choice(map(parsers, parser_from_adt))
+def parser_from_adt(BPMany(parser)) -> many(parser_from_adt(parser))
+def parser_from_adt(BPSome(parser)) -> some(parser_from_adt(parser))
+def parser_from_adt(BPCount(n, parser)) -> count(n, parser_from_adt(parser))
+def parser_from_adt(BPOptional(parser)) -> optional(parser_from_adt(parser))
+def parser_from_adt(BPBetween(open_parser, close_parser, parser)) -> between(parser_from_adt(open_parser), parser_from_adt(close_parser), parser_from_adt(parser))
+def parser_from_adt(BPSepBy(parser, separator)) -> sepBy(parser_from_adt(parser), parser_from_adt(separator))
+def parser_from_adt(BPSepBy1(parser, separator)) -> sepBy1(parser_from_adt(parser), parser_from_adt(separator))
+def parser_from_adt(BPManyTill(parser, end_parser)) -> manyTill(parser_from_adt(parser), parser_from_adt(end_parser))
+def parser_from_adt(BPLookAhead(parser)) -> lookAhead(parser_from_adt(parser))
+def parser_from_adt(BPNotFollowedBy(parser)) -> notFollowedBy(parser_from_adt(parser))
+def parser_from_adt(BPLazy(thunk)) -> lazy(thunk)
+def parser_from_adt(BPChainL1(term_parser, op_parser, combine)) -> chainl1(parser_from_adt(term_parser), parser_from_adt(op_parser), combine)
+def parser_from_adt(BPFloat()) -> float()
+def parser_from_adt(BPSigned(number_parser)) -> signed(parser_from_adt(number_parser))
+def parser_from_adt(parser) -> parser
+
+def normalize_parser(parser) do
+    if (is_bp_parser(parser)) then
+        return parser_from_adt(parser)
+    end
+    return parser
+end
+
+def maybe_just(value) do
+    m = #{}#
+    m["tag"] = "Just"
+    m["value"] = value
+    return m
+end
+
+def maybe_nothing() do
+    m = #{}#
+    m["tag"] = "Nothing"
+    m["value"] = false
+    return m
+end
+
+def maybe_to_adt(maybe_value) do
+    if (maybe_value["tag"] == "Just") then
+        return BPJust(maybe_value["value"])
+    end
+    return BPNothing()
+end
+
+def maybe_from_adt(BPJust(value)) -> maybe_just(value)
+def maybe_from_adt(BPNothing()) -> maybe_nothing()
+def maybe_from_adt(maybe_value) -> maybe_value
+
+def optionalADT(parser) -> mapP(optional(parser), maybe_to_adt)
+
+def state_to_adt(state) -> BPState(state["input"], state["source"], state["index"], state["line"], state["column"])
+
+def state_from_adt(BPState(input, source, index, line, column)) do
+    state = #{}#
+    state["input"] = input
+    state["source"] = source
+    state["index"] = index
+    state["line"] = line
+    state["column"] = column
+    return state
+end
+def state_from_adt(state) -> state
+
+def normalize_state(state) -> state_from_adt(state)
+
+def result_to_adt(result) do
+    if (result["ok"]) then
+        return BPOk(result["value"], state_to_adt(result["state"]))
+    end
+    return BPErr(result["expected"], result["message"], state_to_adt(result["state"]))
+end
+
+def result_from_adt(BPOk(value, state)) -> ok_result(value, state_from_adt(state))
+def result_from_adt(BPErr(expected, message, state)) -> err_result(expected, message, state_from_adt(state))
+def result_from_adt(result) -> result
+
+def parse_many(sub_parser, state) do
+    values = []
+    current = state
+
+    for true do
+        result = parse_state(sub_parser, current)
+        if (!result["ok"]) then
+            if (consumed(current, result["state"])) then
+                return result
+            end
+            return ok_result(values, current)
+        end
+
+        if (!consumed(current, result["state"])) then
+            return err_result(["parser consuming input"], "many parser consumed no input", current)
+        end
+
+        values = values <> [result["value"]]
+        current = result["state"]
+    end
+end
+
+def parse_some(sub_parser, state) do
+    first = parse_state(sub_parser, state)
+    if (!first["ok"]) then
+        return first
+    end
+
+    tail = parse_many(sub_parser, first["state"])
+    if (!tail["ok"]) then
+        return tail
+    end
+
+    return ok_result([first["value"]] <> tail["value"], tail["state"])
+end
+
+def parse_count(n, sub_parser, state) do
+    values = []
+    current = state
+    idx = 0
+    for idx < n do
+        result = parse_state(sub_parser, current)
+        if (!result["ok"]) then
+            return result
+        end
+        values = values <> [result["value"]]
+        current = result["state"]
+        idx = idx + 1
+    end
+    return ok_result(values, current)
+end
+
+def parse_sep_by(sub_parser, separator, state, require_first) do
+    first = parse_state(sub_parser, state)
+    if (!first["ok"]) then
+        if (require_first || consumed(state, first["state"])) then
+            return first
+        end
+        return ok_result([], state)
+    end
+
+    values = [first["value"]]
+    current = first["state"]
+
+    for true do
+        sep_result = parse_state(separator, current)
+        if (!sep_result["ok"]) then
+            if (consumed(current, sep_result["state"])) then
+                return sep_result
+            end
+            return ok_result(values, current)
+        end
+
+        item_result = parse_state(sub_parser, sep_result["state"])
+        if (!item_result["ok"]) then
+            return item_result
+        end
+
+        values = values <> [item_result["value"]]
+        current = item_result["state"]
+    end
+end
+
+def parse_many_till(sub_parser, end_parser, state) do
+    values = []
+    current = state
+
+    for true do
+        end_result = parse_state(end_parser, current)
+        if (end_result["ok"]) then
+            return ok_result(values, end_result["state"])
+        end
+        if (consumed(current, end_result["state"])) then
+            return end_result
+        end
+
+        item_result = parse_state(sub_parser, current)
+        if (!item_result["ok"]) then
+            return item_result
+        end
+        if (!consumed(current, item_result["state"])) then
+            return err_result(["parser consuming input"], "manyTill parser consumed no input", current)
+        end
+
+        values = values <> [item_result["value"]]
+        current = item_result["state"]
+    end
+end
+
+def parse_chainl1(term_parser, op_parser, combine, state) do
+    first = parse_state(term_parser, state)
+    if (!first["ok"]) then
+        return first
+    end
+
+    acc = first["value"]
+    current = first["state"]
+
+    for true do
+        op_result = parse_state(op_parser, current)
+        if (!op_result["ok"]) then
+            if (consumed(current, op_result["state"])) then
+                return op_result
+            end
+            return ok_result(acc, current)
+        end
+
+        rhs_result = parse_state(term_parser, op_result["state"])
+        if (!rhs_result["ok"]) then
+            return rhs_result
+        end
+
+        acc = combine(acc, op_result["value"], rhs_result["value"])
+        current = rhs_result["state"]
+    end
+end
+
+def parse_state(parser, state) do
+    parser = normalize_parser(parser)
+    state = normalize_state(state)
+    kind = parser["kind"]
+
+    if (kind == "pure") then
+        return ok_result(parser["value"], state)
+
+    else if (kind == "fail") then
+        return err_result([], parser["message"], state)
+
+    else if (kind == "satisfy") then
+        if (at_end(state)) then
+            return err_result([parser["expected"]], "unexpected end of input", state)
+        end
+        ch = current_char(state)
+        pred = parser["pred"]
+        if (pred(ch)) then
+            return ok_result(ch, advance_state_char(state, ch))
+        end
+        return err_result([parser["expected"]], "unexpected " + char_to_string(ch), state)
+
+    else if (kind == "anySingle") then
+        if (at_end(state)) then
+            return err_result(["any token"], "unexpected end of input", state)
+        end
+        ch = current_char(state)
+        return ok_result(ch, advance_state_char(state, ch))
+
+    else if (kind == "char") then
+        if (at_end(state)) then
+            return err_result([char_to_string(parser["char"])], "unexpected end of input", state)
+        end
+        ch = current_char(state)
+        if (ch == parser["char"]) then
+            return ok_result(ch, advance_state_char(state, ch))
+        end
+        return err_result([char_to_string(parser["char"])], "unexpected " + char_to_string(ch), state)
+
+    else if (kind == "oneOf") then
+        if (at_end(state)) then
+            return err_result(["one of allowed chars"], "unexpected end of input", state)
+        end
+        ch = current_char(state)
+        if (index_of(parser["chars"], ch) != -1) then
+            return ok_result(ch, advance_state_char(state, ch))
+        end
+        return err_result(["one of allowed chars"], "unexpected " + char_to_string(ch), state)
+
+    else if (kind == "noneOf") then
+        if (at_end(state)) then
+            return err_result(["none of disallowed chars"], "unexpected end of input", state)
+        end
+        ch = current_char(state)
+        if (index_of(parser["chars"], ch) == -1) then
+            return ok_result(ch, advance_state_char(state, ch))
+        end
+        return err_result(["none of disallowed chars"], "unexpected " + char_to_string(ch), state)
+
+    else if (kind == "string") then
+        idx = 0
+        current = state
+        token = parser["token"]
+        for idx < length(token) do
+            if (at_end(current)) then
+                return err_result([token], "unexpected end of input", current)
+            end
+            got = current_char(current)
+            expected = token[idx]
+            if (got != expected) then
+                return err_result([token], "unexpected " + char_to_string(got), current)
+            end
+            current = advance_state_char(current, got)
+            idx = idx + 1
+        end
+        return ok_result(token, current)
+
+    else if (kind == "eof") then
+        if (at_end(state)) then
+            return ok_result(true, state)
+        end
+        return err_result(["end of input"], "unexpected " + char_to_string(current_char(state)), state)
+
+    else if (kind == "float") then
+        return parse_float(state)
+
+    else if (kind == "signed") then
+        return parse_signed(parser["parser"], state)
+
+    else if (kind == "lazy") then
+        thunk = parser["thunk"]
+        return parse_state(thunk(), state)
+
+    else if (kind == "chainl1") then
+        return parse_chainl1(parser["term"], parser["op"], parser["combine"], state)
+
+    else if (kind == "mapP") then
+        base = parse_state(parser["parser"], state)
+        if (!base["ok"]) then
+            return base
+        end
+        mapper = parser["mapper"]
+        return ok_result(mapper(base["value"]), base["state"])
+
+    else if (kind == "bind") then
+        base = parse_state(parser["parser"], state)
+        if (!base["ok"]) then
+            return base
+        end
+        to_parser = parser["to_parser"]
+        next_parser = to_parser(base["value"])
+        return parse_state(next_parser, base["state"])
+
+    else if (kind == "thenP") then
+        left_result = parse_state(parser["left"], state)
+        if (!left_result["ok"]) then
+            return left_result
+        end
+        return parse_state(parser["right"], left_result["state"])
+
+    else if (kind == "before") then
+        left_result = parse_state(parser["left"], state)
+        if (!left_result["ok"]) then
+            return left_result
+        end
+        right_result = parse_state(parser["right"], left_result["state"])
+        if (!right_result["ok"]) then
+            return right_result
+        end
+        return ok_result(left_result["value"], right_result["state"])
+
+    else if (kind == "label") then
+        base = parse_state(parser["parser"], state)
+        if (base["ok"]) then
+            return base
+        end
+        if (consumed(state, base["state"])) then
+            return base
+        end
+        return err_result([parser["expected_label"]], base["message"], base["state"])
+
+    else if (kind == "orElse") then
+        left_result = parse_state(parser["left"], state)
+        if (left_result["ok"]) then
+            return left_result
+        end
+        right_result = parse_state(parser["right"], state)
+        if (right_result["ok"]) then
+            return right_result
+        end
+        return merge_failures(left_result, right_result)
+
+    else if (kind == "choice") then
+        idx = 0
+        best = err_result(["choice"], "no parser matched", state)
+        parsers = parser["parsers"]
+        for idx < (:> parsers) do
+            current_result = parse_state(parsers[idx], state)
+            if (current_result["ok"]) then
+                return current_result
+            end
+            best = merge_failures(best, current_result)
+            idx = idx + 1
+        end
+        return best
+
+    else if (kind == "many") then
+        return parse_many(parser["parser"], state)
+
+    else if (kind == "some") then
+        return parse_some(parser["parser"], state)
+
+    else if (kind == "count") then
+        return parse_count(parser["n"], parser["parser"], state)
+
+    else if (kind == "optional") then
+        base = parse_state(parser["parser"], state)
+        if (base["ok"]) then
+            return ok_result(maybe_just(base["value"]), base["state"])
+        end
+        if (consumed(state, base["state"])) then
+            return base
+        end
+        return ok_result(maybe_nothing(), state)
+
+    else if (kind == "between") then
+        open_result = parse_state(parser["open"], state)
+        if (!open_result["ok"]) then
+            return open_result
+        end
+        middle_result = parse_state(parser["parser"], open_result["state"])
+        if (!middle_result["ok"]) then
+            return middle_result
+        end
+        close_result = parse_state(parser["close"], middle_result["state"])
+        if (!close_result["ok"]) then
+            return close_result
+        end
+        return ok_result(middle_result["value"], close_result["state"])
+
+    else if (kind == "sepBy") then
+        return parse_sep_by(parser["parser"], parser["separator"], state, false)
+
+    else if (kind == "sepBy1") then
+        return parse_sep_by(parser["parser"], parser["separator"], state, true)
+
+    else if (kind == "manyTill") then
+        return parse_many_till(parser["parser"], parser["end_parser"], state)
+
+    else if (kind == "lookAhead") then
+        base = parse_state(parser["parser"], state)
+        if (base["ok"]) then
+            return ok_result(base["value"], state)
+        end
+        return err_result(base["expected"], base["message"], state)
+
+    else if (kind == "notFollowedBy") then
+        base = parse_state(parser["parser"], state)
+        if (base["ok"]) then
+            return err_result(["notFollowedBy"], "unexpected follow-up input", state)
+        end
+        return ok_result(true, state)
+    end
+
+    return err_result(["parser"], "unknown parser kind", state)
+end
+
+def runParser(parser, source_name, input) do
+    state = mk_state(input, source_name)
+    return parse_state(parser, state)
+end
+
+def parse(parser, source_name, input) -> runParser(parser, source_name, input)
+
+def runParserADT(parser, source_name, input) -> result_to_adt(runParser(parser, source_name, input))
+
+def parseADT(parser, source_name, input) -> runParserADT(parser, source_name, input)
+
+def errorBundlePretty(BPOk(_, _)) -> "parse succeeded"
+def errorBundlePretty(BPErr(expected, message, adt_state)) do
+    return errorBundlePretty(err_result(expected, message, state_from_adt(adt_state)))
+end
+
+def errorBundlePretty(result) do
+    if (result["ok"]) then
+        return "parse succeeded"
+    end
+
+    state = result["state"]
+    expected = result["expected"]
+    expected_text = "<unknown>"
+    if ((:> expected) > 0) then
+        expected_text = join(expected, ", ")
+    end
+
+    message = result["message"]
+    if (length(message) == 0) then
+        message = "unexpected input"
+    end
+
+    return state["source"] + ":" + state["line"] + ":" + state["column"] + ": " + message + "; expected: " + expected_text
+end
+
+def parseTest(parser, input) do
+    result = parse(parser, "<interactive>", input)
+    if (result["ok"]) then
+        return result["value"]
+    end
+    return errorBundlePretty(result)
+end
+
+def parseTestADT(parser, input) do
+    result = parseADT(parser, "<interactive>", input)
+    result_obj = result_from_adt(result)
+    if (result_obj["ok"]) then
+        return result_obj["value"]
+    end
+    return errorBundlePretty(result)
+end
+
+def contains_char(chars, c) -> index_of(chars, c) != -1
+
+def is_digit(c) -> contains_char(DIGITS, c)
+
+def is_letter(c) -> contains_char(LOWER_ALPHA + UPPER_ALPHA, c)
+
+def is_alpha_num(c) -> contains_char(LOWER_ALPHA + UPPER_ALPHA + DIGITS, c)
+
+def is_space_char(c) -> contains_char(WHITESPACE, c)
+
+def digitChar() -> satisfy(is_digit, "digit")
+
+def letterChar() -> satisfy(is_letter, "letter")
+
+def alphaNumChar() -> satisfy(is_alpha_num, "alphanumeric")
+
+def spaceChar() -> satisfy(is_space_char, "whitespace")
+
+def newline() -> char('\n')
+
+def tab() -> char('\t')
+
+def space() -> many(spaceChar())
+
+def space1() -> some(spaceChar())
+
+def lexeme(parser) -> before(parser, space())
+
+def symbol(s) -> lexeme(string(s))
+
+def pow10(n) do
+    acc = 1.0
+    idx = 0
+    for idx < n do
+        acc = acc * 10.0
+        idx = idx + 1
+    end
+    return acc
+end
+
+def to_float_parts(int_digits, frac_digits) do
+    whole = to_int(int_digits) * 1.0
+    frac_int = to_int(frac_digits) * 1.0
+    divisor = pow10(:> frac_digits)
+    return whole + (frac_int / divisor)
+end
+
+def decimal() -> mapP(some(digitChar()), to_int)
+
+def float() do
+    parser = mk_parser("float")
+    return parser
+end
+
+def parse_float(state) do
+    int_result = parse_state(some(digitChar()), state)
+    if (!int_result["ok"]) then
+        return int_result
+    end
+
+    dot_result = parse_state(char('.'), int_result["state"])
+    if (!dot_result["ok"]) then
+        return dot_result
+    end
+
+    frac_result = parse_state(some(digitChar()), dot_result["state"])
+    if (!frac_result["ok"]) then
+        return frac_result
+    end
+
+    value = to_float_parts(int_result["value"], frac_result["value"])
+    return ok_result(value, frac_result["state"])
+end
+
+def signed(number_parser) do
+    parser = mk_parser("signed")
+    parser["parser"] = number_parser
+    return parser
+end
+
+def parse_signed(number_parser, state) do
+    minus_result = parse_state(char('-'), state)
+    if (minus_result["ok"]) then
+        value_result = parse_state(number_parser, minus_result["state"])
+        if (!value_result["ok"]) then
+            return value_result
+        end
+        return ok_result(-value_result["value"], value_result["state"])
+    end
+
+    plus_result = parse_state(char('+'), state)
+    if (plus_result["ok"]) then
+        return parse_state(number_parser, plus_result["state"])
+    end
+
+    return parse_state(number_parser, state)
+end
+
+def integer() -> signed(decimal())
+
+def parens(parser) -> between(symbol("("), symbol(")"), parser)
+
+def brackets(parser) -> between(symbol("["), symbol("]"), parser)
+
+def braces(parser) -> between(symbol("{"), symbol("}"), parser)

@@ -1,0 +1,55 @@
+import core
+import vendor/bernparsec
+
+adt Expr = Lit Double | Add Expr Expr | Sub Expr Expr | Mul Expr Expr | Div Expr Expr | Neg Expr
+
+def to_double(n) do
+    if (::n == "Double") then
+        return n
+    end
+    return n * 1.0
+end
+
+def mk_lit(n) -> Lit(to_double(n))
+def mk_neg(expr) -> Neg(expr)
+
+def combine_term(lhs, op, rhs) -> case op is "*" = Mul(lhs, rhs) | "/" = Div(lhs, rhs) end
+def combine_expr(lhs, op, rhs) -> case op is "+" = Add(lhs, rhs) | "-" = Sub(lhs, rhs) end
+
+def numberP() -> mapP(lexeme(orElse(float(), decimal())), mk_lit)
+def parensP() -> between(symbol("("), symbol(")"), lazy(exprP))
+def unaryMinusP() -> mapP(thenP(symbol("-"), lazy(factorP)), mk_neg)
+def unaryPlusP() -> thenP(symbol("+"), lazy(factorP))
+
+def factorP() -> choice([unaryMinusP(), unaryPlusP(), parensP(), numberP()])
+def termOpP() -> orElse(symbol("*"), symbol("/"))
+def exprOpP() -> orElse(symbol("+"), symbol("-"))
+def termP() -> chainl1(lazy(factorP), termOpP(), combine_term)
+def exprP() -> chainl1(lazy(termP), exprOpP(), combine_expr)
+
+def programP() -> before(thenP(space(), lazy(exprP)), before(space(), eof()))
+
+def eval_expr(Lit(n)) -> n
+def eval_expr(Add(a, b)) -> eval_expr(a) + eval_expr(b)
+def eval_expr(Sub(a, b)) -> eval_expr(a) - eval_expr(b)
+def eval_expr(Mul(a, b)) -> eval_expr(a) * eval_expr(b)
+def eval_expr(Div(a, b)) -> eval_expr(a) / eval_expr(b)
+def eval_expr(Neg(a)) -> -eval_expr(a)
+
+def run_example(src) do
+    result = parse(programP(), "<calc>", src)
+    if (result["ok"]) then
+        ast = result["value"]
+        value = eval_expr(ast)
+        print(src + " => AST: " + ast)
+        print(src + " = " + value)
+    else
+        print(src + " -> ERROR: " + errorBundlePretty(result))
+    end
+end
+
+examples = ["1 + 2 * 3", "(1 + 2) * 3", "10 / 2 + 7 * 2 - 1", "-3 + 4 * (2 + 1)", "12.5 + 0.5 * 4", "1 + (2 *"]
+
+for expr : examples do
+    run_example(expr)
+end

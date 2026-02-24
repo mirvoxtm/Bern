@@ -1,0 +1,72 @@
+import vendor/bernparsec
+import assert
+
+r_char = parse(char('a'), "char_test", "abc")
+assert_equals("bernparsec char ok", r_char["ok"], true)
+assert_equals("bernparsec char value", r_char["value"], 'a')
+assert_equals("bernparsec char index", r_char["state"]["index"], 1)
+
+r_string = parse(string("hello"), "string_test", "hello!")
+assert_equals("bernparsec string ok", r_string["ok"], true)
+assert_equals("bernparsec string value", r_string["value"], "hello")
+assert_equals("bernparsec string index", r_string["state"]["index"], 5)
+
+r_choice = parse(choice([string("cat"), string("car")]), "choice_test", "carpet")
+assert_equals("bernparsec choice ok", r_choice["ok"], true)
+assert_equals("bernparsec choice value", r_choice["value"], "car")
+
+r_many_digits = parse(many(digitChar()), "many_test", "123abc")
+assert_equals("bernparsec many ok", r_many_digits["ok"], true)
+assert_equals("bernparsec many value", r_many_digits["value"], ['1', '2', '3'])
+
+r_decimal = parse(decimal(), "decimal_test", "123abc")
+assert_equals("bernparsec decimal ok", r_decimal["ok"], true)
+assert_equals("bernparsec decimal value", r_decimal["value"], 123)
+
+r_float = parse(float(), "float_test", "12.50xyz")
+assert_equals("bernparsec float ok", r_float["ok"], true)
+assert_equals("bernparsec float value", r_float["value"], 12.5)
+
+r_sep = parse(sepBy(decimal(), char(',')), "sep_test", "1,2,33")
+assert_equals("bernparsec sepBy ok", r_sep["ok"], true)
+assert_equals("bernparsec sepBy value", r_sep["value"], [1, 2, 33])
+
+r_optional_hit = parse(optional(char('x')), "optional_hit_test", "xyz")
+assert_equals("bernparsec optional hit tag", r_optional_hit["value"]["tag"], "Just")
+assert_equals("bernparsec optional hit value", r_optional_hit["value"]["value"], 'x')
+
+r_optional_miss = parse(optional(char('x')), "optional_miss_test", "abc")
+assert_equals("bernparsec optional miss tag", r_optional_miss["value"]["tag"], "Nothing")
+
+r_many_till = parse(manyTill(letterChar(), char('!')), "many_till_test", "abc!")
+assert_equals("bernparsec manyTill ok", r_many_till["ok"], true)
+assert_equals("bernparsec manyTill value", r_many_till["value"], ['a', 'b', 'c'])
+
+r_lookahead = parse(lookAhead(string("abc")), "lookahead_test", "abcdef")
+assert_equals("bernparsec lookAhead ok", r_lookahead["ok"], true)
+assert_equals("bernparsec lookAhead value", r_lookahead["value"], "abc")
+assert_equals("bernparsec lookAhead index", r_lookahead["state"]["index"], 0)
+
+r_not_followed_ok = parse(notFollowedBy(char('!')), "not_followed_ok", "abc")
+assert_equals("bernparsec notFollowedBy ok", r_not_followed_ok["ok"], true)
+
+r_not_followed_fail = parse(notFollowedBy(char('a')), "not_followed_fail", "abc")
+assert_equals("bernparsec notFollowedBy fail", r_not_followed_fail["ok"], false)
+
+r_eof_ok = parse(before(string("ok"), eof()), "eof_ok", "ok")
+assert_equals("bernparsec eof ok", r_eof_ok["ok"], true)
+assert_equals("bernparsec eof value", r_eof_ok["value"], "ok")
+
+r_eof_fail = parse(before(string("ok"), eof()), "eof_fail", "ok!")
+assert_equals("bernparsec eof fail", r_eof_fail["ok"], false)
+
+def chain_add(lhs, op, rhs) -> lhs + rhs
+
+r_chainl1 = parse(chainl1(decimal(), char('+'), chain_add), "chainl1_test", "1+2+30")
+assert_equals("bernparsec chainl1 ok", r_chainl1["ok"], true)
+assert_equals("bernparsec chainl1 value", r_chainl1["value"], 33)
+
+def nested_num() -> orElse(decimal(), between(char('('), char(')'), lazy(nested_num)))
+r_lazy = parse(before(lazy(nested_num), eof()), "lazy_test", "(((42)))")
+assert_equals("bernparsec lazy ok", r_lazy["ok"], true)
+assert_equals("bernparsec lazy value", r_lazy["value"], 42)
