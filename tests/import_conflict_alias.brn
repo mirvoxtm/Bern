@@ -1,0 +1,9 @@
+import assert
+import tests/import_conflict_liba as la
+import tests/import_conflict_libb as lb
+
+a = la:map([1, 2], \z -> z + 10)
+b = lb:map([1, 2], \z -> z + 10)
+
+assert_equals("alias la map", a, [11, 12])
+assert_equals("alias lb map", b, [12, 14])

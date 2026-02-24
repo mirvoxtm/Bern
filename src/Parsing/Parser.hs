@@ -337,9 +337,17 @@ parseCBinding = do
 -- Parse a variable or a function call (name(args...))
 parseFunctionCallOrVar :: Parser Expression
 parseFunctionCallOrVar = lexeme $ do
+    namespace <- optional $ try $ do
+        nsFirst <- letterChar <|> char '_'
+        nsRest <- many (alphaNumChar <|> char '_' <|> char '/')
+        _ <- char ':'
+        return (nsFirst : nsRest)
     firstChar <- letterChar <|> char '_'
     rest <- many (alphaNumChar <|> char '_')
-    let name = firstChar : rest
+    let baseName = firstChar : rest
+    let name = case namespace of
+                Just ns -> ns ++ ":" ++ baseName
+                Nothing -> baseName
     margs <- optional $ between (symbolNoNl "(") (symbolNoNl ")") (parseExpression `sepBy` symbolNoNl ",")
     case margs of
         Just args -> return $ FunctionCall name args
@@ -705,7 +713,12 @@ parseImport :: Parser Command
 parseImport = do
     _ <- symbol "import"
     name <- lexeme $ some (letterChar <|> char '_' <|> char '/')
-    return (Import name)
+    alias <- optional $ try $ do
+        _ <- keyword "as"
+        first <- letterChar <|> char '_'
+        rest <- many (alphaNumChar <|> char '_')
+        return (first : rest)
+    return (Import name alias)
 
 parseReturn :: Parser Command
 parseReturn = do

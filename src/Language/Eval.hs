@@ -13,7 +13,7 @@ import System.Info (os)
 import Parsing.Parser (parseBernFile)
 import Text.Megaparsec (errorBundlePretty, sourcePosPretty, SourcePos)
 import Text.Megaparsec.Pos (sourceName, sourceLine, sourceColumn, unPos)
-import Data.List (isInfixOf)
+import Data.List (isInfixOf, nub, isPrefixOf)
 import qualified Language.FFI as FFI
 import Control.Concurrent.MVar
 import System.Mem.StableName
@@ -62,6 +62,90 @@ mkEvalError mpos msg = EvalError mpos msg Nothing
 -- | Create EvalError with hint
 mkEvalErrorHint :: Maybe SourcePos -> String -> String -> EvalError
 mkEvalErrorHint mpos msg hint = EvalError mpos msg (Just hint)
+
+stringToValue :: String -> Value
+stringToValue s = List (map Character s) (length s)
+
+importOwnerKey :: String -> String
+importOwnerKey name = "__bern_import_owner_" ++ name
+
+importConflictKey :: String -> String
+importConflictKey name = "__bern_import_conflict_" ++ name
+
+importConflictHintKey :: String -> String
+importConflictHintKey name = "__bern_import_conflict_hint_" ++ name
+
+importModuleSymbolsKey :: String -> String
+importModuleSymbolsKey moduleName = "__bern_import_symbols_" ++ moduleName
+
+isMetaSymbolName :: String -> Bool
+isMetaSymbolName name = "__" `isPrefixOf` name || ':' `elem` name
+
+collectImportSymbols :: Command -> [String]
+collectImportSymbols cmd = nub (filter (not . isMetaSymbolName) (go cmd))
+  where
+    go Skip = []
+    go (Concat c1 c2) = go c1 ++ go c2
+    go (FunctionDef name _) = [name]
+    go (Assign name _) = [name]
+    go (GlobalAssign name _) = [name]
+    go (AlgebraicTypeDef (ADTDef _ typeName constructors)) =
+        typeName : [ctorName | ADTConstructor ctorName _ <- constructors]
+    go (CForeignDecl name _ _ _) = [name]
+    go _ = []
+
+registerImportedSymbol :: String -> String -> Hashtable String Value -> Hashtable String Value
+registerImportedSymbol moduleName symbol table =
+    case lookupHashtable table (importOwnerKey symbol) of
+        Nothing ->
+            insertHashtable table (importOwnerKey symbol) (stringToValue moduleName)
+        Just ownerVal ->
+            case valueToString ownerVal of
+                Just ownerModule
+                    | ownerModule /= moduleName ->
+                        let tableWithConflict = insertHashtable table (importConflictKey symbol) (Boolean True)
+                            hint = "symbol '" ++ symbol ++ "' exists in both '" ++ ownerModule ++ "' and '" ++ moduleName ++ "'"
+                        in insertHashtable tableWithConflict (importConflictHintKey symbol) (stringToValue hint)
+                _ -> table
+
+isAmbiguousImportedSymbol :: Hashtable String Value -> String -> Bool
+isAmbiguousImportedSymbol table name =
+    case lookupHashtable table (importConflictKey name) of
+        Just (Boolean True) -> True
+        _                   -> False
+
+ambiguousImportedSymbolError :: Hashtable String Value -> String -> EvalError
+ambiguousImportedSymbolError table name =
+    let detail =
+            case lookupHashtable table (importConflictHintKey name) of
+                Just v ->
+                    case valueToString v of
+                        Just s  -> s ++ ". Use a qualified call like '<module>:" ++ name ++ "(...)'."
+                        Nothing -> "Use a qualified call like '<module>:" ++ name ++ "(...)'."
+                Nothing -> "Use a qualified call like '<module>:" ++ name ++ "(...)'."
+    in mkEvalErrorHint Nothing ("ambiguous imported symbol '" ++ name ++ "'") detail
+
+splitQualifiedName :: String -> Maybe (String, String)
+splitQualifiedName name =
+    case break (== ':') name of
+        (moduleName, ':' : symbol)
+            | not (null moduleName) && not (null symbol) -> Just (moduleName, symbol)
+        _ -> Nothing
+
+withQualifiedModuleScope :: Hashtable String Value -> String -> Hashtable String Value
+withQualifiedModuleScope table moduleName =
+    case lookupHashtable table (importModuleSymbolsKey moduleName) of
+        Just (Object symbols) ->
+            foldl
+                (\tbl (symbol, _) ->
+                    let maybeQualified = lookupHashtable table (moduleName ++ ":" ++ symbol)
+                        withSymbol = case maybeQualified of
+                            Just value -> insertHashtable tbl symbol value
+                            Nothing    -> tbl
+                    in insertHashtable withSymbol (importConflictKey symbol) (Boolean False))
+                table
+                symbols
+        _ -> table
 
 interpretCommand :: Maybe SourcePos -> Command -> Hashtable String Value -> IO (Hashtable String Value)
 interpretCommand mpos Skip table = return table
@@ -346,9 +430,12 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef isIterative typeName constructor
     typeStringToBernCType "Pointer" = FFI.BernPtr
     typeStringToBernCType _ = FFI.BernVoid
 
-interpretCommand mpos (Import moduleName) table = do
+interpretCommand mpos (Import moduleName mAlias) table = do
     execPath <- getExecutablePath
     let installDir = takeDirectory execPath
+    let qualifier = case mAlias of
+            Just alias -> alias
+            Nothing    -> moduleName
     let installLibPath = installDir </> "lib" </> moduleName ++ ".brn"
     let localLibPath = "lib" </> moduleName ++ ".brn"
     let localPath = moduleName ++ ".brn"
@@ -378,7 +465,26 @@ interpretCommand mpos (Import moduleName) table = do
                         ("failed to parse module '" ++ moduleName ++ "'")
                         "see parse errors above")
                 Right cmd -> do
-                    interpretCommand mpos cmd table
+                    let symbols = collectImportSymbols cmd
+                    let importBaseTable =
+                            foldl (\tbl symbol -> insertHashtable tbl symbol Undefined) table symbols
+                    importedTable <- interpretCommand mpos cmd importBaseTable
+                    let tableWithQualified = foldl
+                            (\tbl symbol ->
+                                case lookupHashtable importedTable symbol of
+                                    Just value -> insertHashtable tbl (qualifier ++ ":" ++ symbol) value
+                                    Nothing    -> tbl)
+                            importedTable
+                            symbols
+                    let tableWithImportMeta = foldl
+                            (\tbl symbol -> registerImportedSymbol qualifier symbol tbl)
+                            tableWithQualified
+                            symbols
+                    let tableWithModuleSymbols =
+                            insertHashtable tableWithImportMeta
+                                (importModuleSymbolsKey qualifier)
+                                (Object [(symbol, Boolean True) | symbol <- symbols])
+                    return tableWithModuleSymbols
 
 interpretCommand mpos (Concat cmd1 cmd2) table = do
     table' <- interpretCommand mpos cmd1 table
@@ -602,7 +708,9 @@ evaluate (Index expr idxExpr) table = do
                 Nothing -> Left $ mkEvalError Nothing ("key '" ++ [c] ++ "' not found")
         _ -> Left $ mkEvalError Nothing ("cannot index " ++ getValueType collection ++ " with " ++ getValueType idx)
 
-evaluate (Variable name) table = unsafePerformIO $ do
+evaluate (Variable name) table
+    | isAmbiguousImportedSymbol table name = Left (ambiguousImportedSymbolError table name)
+    | otherwise = unsafePerformIO $ do
     globalScopeNow <- readMVar globalScopeMVar
     case lookupHashtable globalScopeNow name of
         Just val -> do
@@ -669,23 +777,33 @@ evaluate (ObjectLiteral kvExprs) table = do
 evaluate (LambdaExpr params bodyExpr) _table =
     Right (Lambda [Clause params (BodyExpr bodyExpr)])
     
-evaluate (FunctionCall name args) table =
-    case lookupHashtable table name of
-        Just (Function []) -> 
-            case sequence (map (`evaluate` table) args) of
-                Left err -> Left err
-                Right vals -> Right $ AlgebraicDataType name vals
-        Just (CBinding _ wrapper) -> 
-            case sequence (map (`evaluate` table) args) of
-                Left err -> Left err
-                Right vals -> 
-                    let result = unsafePerformIO (wrapper vals)
-                    in Right result
-        Just v -> 
-            case sequence (map (`evaluate` table) args) of
-                Left err -> Left err
-                Right vals -> applyFunction v vals table
-        Nothing -> Left $ mkEvalError Nothing ("undefined function with name '" ++ name ++ "'")
+evaluate (FunctionCall name args) table
+    | isAmbiguousImportedSymbol table name = Left (ambiguousImportedSymbolError table name)
+    | otherwise =
+        case lookupHashtable table name of
+            Nothing -> Left $ mkEvalError Nothing ("undefined function with name '" ++ name ++ "'")
+            Just fnVal ->
+                case sequence (map (`evaluate` table) args) of
+                    Left err -> Left err
+                    Right vals ->
+                        let callTable =
+                                case splitQualifiedName name of
+                                    Just (moduleName, baseSymbol) ->
+                                        let moduleScoped = withQualifiedModuleScope table moduleName
+                                            withBase = insertHashtable moduleScoped baseSymbol fnVal
+                                        in insertHashtable withBase (importConflictKey baseSymbol) (Boolean False)
+                                    Nothing -> table
+                        in dispatchCall name fnVal vals callTable
+  where
+    dispatchCall callName (Function []) vals _ =
+        let ctorName = case splitQualifiedName callName of
+                        Just (_, base) -> base
+                        Nothing        -> callName
+        in Right (AlgebraicDataType ctorName vals)
+    dispatchCall _ (CBinding _ wrapper) vals _ =
+        Right (unsafePerformIO (wrapper vals))
+    dispatchCall _ fnVal vals callTable =
+        applyFunction fnVal vals callTable
 
 evaluate _ _ = Left $ mkEvalError Nothing "unsupported expression"
 

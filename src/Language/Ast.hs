@@ -160,7 +160,7 @@ data Command = Skip
                 | Concat Command Command
                 | FunctionDef String Clause                   -- def name(params) do ... end / -> expr / pattern clauses
                 | Return Expression                           -- return expr
-                | Import String                               -- import module
+                | Import String (Maybe String)                -- import module [as alias]
                 | Input String Expression                     -- input var prompt
                 | WriteFile Expression Expression             -- writefile filename expr
                 | AlgebraicTypeDef AlgebraicDataTypeDef

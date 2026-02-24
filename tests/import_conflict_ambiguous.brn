@@ -1,0 +1,4 @@
+import tests/import_conflict_liba
+import tests/import_conflict_libb
+
+map([1, 2], \z -> z + 10)

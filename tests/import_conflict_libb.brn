@@ -1,0 +1,2 @@
+def map([], f) -> []
+def map([head|tail], f) -> [f(head * 2)] <> map(tail, f)

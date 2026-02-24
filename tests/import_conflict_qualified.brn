@@ -1,0 +1,9 @@
+import assert
+import tests/import_conflict_liba
+import tests/import_conflict_libb
+
+a = tests/import_conflict_liba:map([1, 2], \z -> z + 10)
+b = tests/import_conflict_libb:map([1, 2], \z -> z + 10)
+
+assert_equals("qualified liba map", a, [11, 12])
+assert_equals("qualified libb map", b, [12, 14])
