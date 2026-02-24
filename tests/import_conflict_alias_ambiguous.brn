@@ -1,4 +1,10 @@
-import tests/import_conflict_liba as la
-import tests/import_conflict_libb as lb
+import vendor/http/http as http
+import vendor/bernparsec as bernparsec
 
-map([1, 2], \z -> z + 10)
+http_response = http:get("https://raw.githubusercontent.com/bern-lang/bern/master/tests/import_conflict_alias_ambiguous.brn")
+http_body = http_response["body"]
+parse_result = bernparsec:parse(bernparsec:program(), http_body)
+if (parse_result["ok"]) then
+    "Parsed successfully: " + parse_result["value"]
+else
+    "Parse error: " + parse_result["error"]

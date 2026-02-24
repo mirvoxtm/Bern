@@ -1,12 +1,14 @@
 {
   "name": "bern-syntax",
-  "displayName": "Bern Syntax Highlighting",
-  "description": "Syntax highlighting for the Bern language (.brn)",
-  "version": "0.0.5",
+  "displayName": "Bern Syntax Highlighting + IntelliSense",
+  "description": "Syntax highlighting and IntelliSense for the Bern language (.brn)",
+  "version": "0.0.9",
   "publisher": "mirvoxtm",
+  "main": "./extension.js",
   "engines": {
     "vscode": "^1.85.0"
   },
+  "activationEvents": ["onLanguage:bern"],
   "categories": ["Programming Languages"],
   "contributes": {
     "languages": [
@@ -29,5 +31,6 @@
     "type": "git",
     "url": "https://github.com/mirvoxtm/Bern"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "icon": "cat.png"
 }
