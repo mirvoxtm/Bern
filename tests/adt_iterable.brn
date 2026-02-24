@@ -1,0 +1,11 @@
+import assert
+
+adt iterative Shape = Circle Double | Rectangle Double Double
+
+c = Circle(5.0)
+vals = []
+for p : c do
+    vals = vals <> [p]
+end
+
+assert_equals("adt iterate circle", vals, [5.0])

@@ -241,7 +241,7 @@ interpretCommand mpos (While cond cmd) table =
 interpretCommand mpos (ForIn varName collection cmd) table =
     case evaluate collection table of
         Right coll ->
-            case toIterable coll of
+            case toIterable table coll of
                 Right vals -> loop vals table
                 Left err   -> die err
         Left err -> die err
@@ -256,7 +256,7 @@ interpretCommand mpos (ForIn varName collection cmd) table =
 interpretCommand mpos (ForInCount varName idxName collection cmd) table =
     case evaluate collection table of
         Right coll ->
-            case toIterable coll of
+            case toIterable table coll of
                 Right vals -> loop (zip vals [0..]) table
                 Left err   -> die err
         Left err -> die err
@@ -281,11 +281,15 @@ interpretCommand mpos (Return expr) table =
         Right v -> return (insertHashtable table "__return" v)
         Left err -> die err
 
-interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = do
+interpretCommand mpos (AlgebraicTypeDef (ADTDef isIterative typeName constructors)) table = do
     let adtVal = AlgebraicDataType typeName []
     let newTable = insertHashtable table typeName adtVal
     let tableWithCtors = foldl (\tbl (ADTConstructor ctorName _) ->
                                   insertHashtable tbl ctorName (Function [])) newTable constructors
+    let tableWithIterableFlags = foldl (\tbl (ADTConstructor ctorName _) ->
+                                          insertHashtable tbl (iterableCtorKey ctorName) (Boolean isIterative))
+                                       tableWithCtors
+                                       constructors
     
     case constructors of
         [ADTConstructor _ fieldTypes] -> do
@@ -294,8 +298,11 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = 
             FFI.registerStruct layout
         _ -> return () 
     
-    return tableWithCtors
+    return tableWithIterableFlags
   where
+    iterableCtorKey :: String -> String
+    iterableCtorKey ctorName = "__bern_iterable_adt_ctor_" ++ ctorName
+
     typeToString :: Type -> String
     typeToString TInt = "Int"
     typeToString TDouble = "Double"
@@ -304,11 +311,11 @@ interpretCommand mpos (AlgebraicTypeDef (ADTDef typeName constructors)) table = 
     typeToString TString = "String"
     typeToString TList = "List"
     typeToString TSet = "Set"
-    typeToString (TCustom "Byte") = "Byte"      -- NEW
-    typeToString (TCustom "UChar") = "UChar"    -- NEW
-    typeToString (TCustom "Float") = "Float"    -- NEW
-    typeToString (TCustom "Short") = "Short"    -- NEW
-    typeToString (TCustom "UShort") = "UShort"  -- NEW
+    typeToString (TCustom "Byte") = "Byte"
+    typeToString (TCustom "UChar") = "UChar"
+    typeToString (TCustom "Float") = "Float"
+    typeToString (TCustom "Short") = "Short"
+    typeToString (TCustom "UShort") = "UShort"
     typeToString (TCustom name) = name
     
     createStructLayout :: String -> [String] -> FFI.StructLayout
@@ -474,17 +481,46 @@ hasReturn tbl = isJust (lookupHashtable tbl "__return")
 die :: EvalError -> IO a
 die evalErr = putStrLn (formatError evalErr) >> exitFailure
 
--- Convert iterable values (list, set, text) to a list of values for for-in loops
-toIterable :: Value -> Either EvalError [Value]
-toIterable (List vals _) = Right vals
-toIterable (Set vals _)  = Right vals
-toIterable v@(List _ _) | Just s <- valueToString v = Right (map Character s)
-toIterable v = Left $ mkEvalError Nothing ("cannot iterate over " ++ getValueType v)
+-- Convert iterable values (list, set, and explicitly iterative ADTs) to a list of values for for-in loops
+toIterable :: Hashtable String Value -> Value -> Either EvalError [Value]
+toIterable table v@(AlgebraicDataType ctorName vals)
+    | isIterativeCtor table ctorName = Right vals
+    | otherwise = Left $ mkEvalError Nothing ("cannot iterate over " ++ getValueType v ++ ". Have you defined it with 'adt iterative'?")
+toIterable _ (List vals _) = Right vals
+toIterable _ (Set vals _)  = Right vals
+toIterable _ v = Left $ mkEvalError Nothing ("cannot iterate over " ++ getValueType v)
+
+isIterativeCtor :: Hashtable String Value -> String -> Bool
+isIterativeCtor tbl ctorName =
+    case lookupHashtable tbl ("__bern_iterable_adt_ctor_" ++ ctorName) of
+        Just (Boolean True) -> True
+        _                   -> False
+
 
 evaluate :: Expression -> Hashtable String Value -> Either EvalError Value
 evaluate (Number n) _ = Right (Integer n)
 evaluate (DoubleNum d) _ = Right (Double d)
 evaluate (BoolLiteral b) _ = Right (Boolean b)
+evaluate (IfExpr cond thenExpr elseExpr) table = do
+    condVal <- evaluate cond table
+    case condVal of
+        Boolean True  -> evaluate thenExpr table
+        Boolean False -> evaluate elseExpr table
+        v -> Left $ mkEvalErrorHint Nothing
+            "condition must be Bool"
+            ("found: " ++ getValueType v)
+evaluate (CaseExpr target branches) table = do
+    targetVal <- evaluate target table
+    evalBranches targetVal branches
+  where
+    evalBranches :: Value -> [CaseBranch] -> Either EvalError Value
+    evalBranches _ [] = Left $ mkEvalError Nothing "no matching case branch"
+    evalBranches v (CaseBranch pat body : rest) =
+        case matchOne pat v of
+            Just bindings ->
+                let caseTable = foldl (\tbl (k,val) -> insertHashtable tbl k val) table bindings
+                in evaluate body caseTable
+            Nothing -> evalBranches v rest
 evaluate (StringLiteral s) _ = Right (List (map Character s) (length s))
 evaluate (CharLiteral c) _ = Right (Character c)
 
@@ -1088,6 +1124,7 @@ prettyValue (Object pairs) = "#{" ++ intercalateWith ", " (map (\(k,v) -> k ++ "
 prettyValue (AlgebraicDataType name vals) = name ++ "(" ++ intercalateWith ", " (map prettyValue vals) ++ ")"
 prettyValue (Function _) = "<function>"
 prettyValue (Lambda _) = "<lambda>"
+prettyValue (_) = "<value>"
 
 intercalateWith :: String -> [String] -> String
 intercalateWith _ [] = ""

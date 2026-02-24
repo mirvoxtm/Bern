@@ -34,7 +34,7 @@ data UnaryOperation = Negate   -- Negates Numbers (-)
                     | SizeOf   -- :> expr
                     deriving (Show, Eq)
 
-data AlgebraicDataTypeDef = ADTDef String [ADTConstructor]
+data AlgebraicDataTypeDef = ADTDef Bool String [ADTConstructor]
     deriving (Show, Eq)
 
 data ADTConstructor = ADTConstructor String [Type]
@@ -47,6 +47,8 @@ data Expression = Number Int
                 | AlgebraicDataTypeConstruct String [Expression] -- ADT Name and its values
                 | DoubleNum Double
                 | BoolLiteral Bool -- true/false
+                | IfExpr Expression Expression Expression -- if cond then expr else expr end
+                | CaseExpr Expression [CaseBranch] -- case expr is pat = expr | pat = expr [end]
                 | StringLiteral String -- "string"
                 | CharLiteral Char -- 'c'
                 | SetLiteral [Expression]      -- {elem1, elem2, ...}
@@ -80,6 +82,9 @@ data Pattern = PVar String
             | PSet [Pattern]            -- Empty set {} or set of patterns {a, b, c}
             | PSetCons Pattern Pattern  -- Set cons pattern {head|tail}
             deriving (Show, Eq)
+
+data CaseBranch = CaseBranch Pattern Expression
+    deriving (Show, Eq)
 
 data FunctionBody = BodyExpr Expression
                     | BodyBlock Command

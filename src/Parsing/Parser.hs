@@ -186,6 +186,37 @@ operatorTable =
         , [ binary "||" Or ]
         ]
 
+operatorTableNoIs :: [[Operator Parser Expression]]
+operatorTableNoIs =
+        [ [ prefix "-" Negate
+            , prefix "!" Not
+            , prefix "::" TypeOf
+            , prefix ":>" SizeOf
+            ]
+        , [ binary "*" Multiply
+            , binary "/" Divide
+            , binary "%" Modulo
+            ]
+        , [ binary "+" Add
+            , binary "-" Subtract
+            ]
+        , [ binary "<>" Concatenation
+            , binary "<|" Union
+            , binary "|>" Intersection
+            , binary "</>" Difference
+            ]
+        , [ binary ">=" GreaterThanEq
+            , binary "<=" LessThanEq
+            , binary ">" GreaterThan
+            , binary "<" LessThan
+            ]
+        , [ binary "==" Equal
+            , binary "!=" Different
+            ]
+        , [ binary "&&" And ]
+        , [ binary "||" Or ]
+        ]
+
 -- Parse terms (numbers, variables, parentheses)
 parseTerm :: Parser Expression
 parseTerm = do
@@ -198,6 +229,8 @@ parseTerm = do
 parseBaseTerm :: Parser Expression
 parseBaseTerm = try parseObject
     <|> try parseLambda
+    <|> try parseCaseExpression
+    <|> try parseIfExpression
     <|> try parseDouble
     <|> try parseNumber
     <|> try parseString
@@ -211,6 +244,56 @@ parseBaseTerm = try parseObject
     <|> try parseFmap
     <|> try parseFunctionCallOrVar
     <|> parseParens
+
+-- Parse case expressions:
+-- case expr is pat = expr | pat = expr end
+-- The trailing "end" is optional in one-line usage.
+parseCaseExpression :: Parser Expression
+parseCaseExpression = do
+    _ <- symbol "case"
+    target <- parseExpressionNoIs
+    _ <- symbol "is"
+    branches <- parseCaseBranch `sepBy1` symbol "|"
+    _ <- optional (symbol "end")
+    return $ CaseExpr target branches
+  where
+    parseCaseBranch :: Parser CaseBranch
+    parseCaseBranch = do
+        pat <- parsePattern
+        _ <- symbol "="
+        body <- parseExpression
+        return (CaseBranch pat body)
+
+-- Parse conditional expressions:
+-- if cond then expr else expr end
+-- if cond then expr else if cond2 then expr2 else expr3 end
+parseIfExpression :: Parser Expression
+parseIfExpression = do
+    _ <- symbol "if"
+    cond <- parseExpression
+    _ <- symbol "then"
+    thenExpr <- parseExpression
+    elseExpr <- parseElseExpr
+    _ <- symbol "end"
+    return $ IfExpr cond thenExpr elseExpr
+  where
+    parseElseExpr :: Parser Expression
+    parseElseExpr = try parseElseIf <|> parseElseOnly
+
+    parseElseIf :: Parser Expression
+    parseElseIf = do
+        _ <- L.symbol scn "else"
+        _ <- symbolNoNl "if"
+        cond <- parseExpression
+        _ <- symbol "then"
+        thenExpr <- parseExpression
+        elseExpr <- parseElseExpr
+        return $ IfExpr cond thenExpr elseExpr
+
+    parseElseOnly :: Parser Expression
+    parseElseOnly = do
+        _ <- symbol "else"
+        parseExpression
 
 parseCBinding ::  Parser Command
 parseCBinding = do
@@ -375,6 +458,12 @@ parseExpression = do
     expr <- makeExprParser (lexeme parseTerm) operatorTable
     return $ WithPos pos expr
 
+parseExpressionNoIs :: Parser Expression
+parseExpressionNoIs = do
+    pos <- getSourcePos
+    expr <- makeExprParser (lexeme parseTerm) operatorTableNoIs
+    return $ WithPos pos expr
+
 parseVarWithIndices :: Parser (String, [Expression])
 parseVarWithIndices = do
     firstChar <- letterChar <|> char '_'
@@ -523,13 +612,17 @@ parseFmap = do
 parseAlgebraicDataType :: Parser Command
 parseAlgebraicDataType = do
     _ <- symbol "adt"
+    iterativeKw <- optional (symbol "iterative")
+    let isIterative = case iterativeKw of
+            Just _  -> True
+            Nothing -> False
     typeName <- lexeme $ do
         firstChar <- letterChar <|> char '_'
         rest <- many (alphaNumChar <|> char '_')
         return (firstChar : rest)
     _ <- symbol "="
     constructors <- parseConstructor `sepBy1` symbol "|"
-    return $ AlgebraicTypeDef (ADTDef typeName constructors)
+    return $ AlgebraicTypeDef (ADTDef isIterative typeName constructors)
   where
     parseConstructor = do
         consName <- lexeme $ do

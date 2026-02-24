@@ -1,0 +1,19 @@
+import assert
+
+adt Shape = Circle Double | Square Double
+
+c = Circle(5.0)
+s = Square(2.0)
+
+def check_pattern(v) -> case v is Circle(_) = "It's a Circle!" | Square(_) = "It's a Square!" | _ = "Unknown"
+def check_pattern_end(v) -> case v is Circle(_) = "circle" | _ = "other" end
+def check_type(v) -> case ::v is "Circle" = "It's a Circle!" | "Square" = "It's a Square!" | _ = "Unknown"
+def return_val(v) -> case v is Circle(r) = r | Square(s) = s end
+
+assert_equals("case pattern circle", check_pattern(c), "It's a Circle!")
+assert_equals("case pattern square", check_pattern(s), "It's a Square!")
+assert_equals("case pattern end", check_pattern_end(s), "other")
+assert_equals("case type circle", check_type(c), "It's a Circle!")
+assert_equals("case type square", check_type(s), "It's a Square!")
+assert_equals("case return circle", return_val(c), 5.0)
+assert_equals("case return square", return_val(s), 2.0)
