@@ -63,7 +63,7 @@ printWelcome = do
   putStrLn (purple ++ "| |_/ / ___ _ __ _ __       " ++ reset)
   putStrLn (purple ++ "| ___ \\/ _ \\ '__| '_ \\     Use \"bern <file>\" to run a program." ++ reset)
   putStrLn (purple ++ "| |_/ /  __/ |  | | | |      Use \"bern help\" for a tutorial." ++ reset)
-  putStrLn (purple ++ "\\____/ \\___|_|  |_| |_|         [ v.1.0.1 12.01.2025 ]" ++ reset)
+  putStrLn (purple ++ "\\____/ \\___|_|  |_| |_|         [ v.1.1.3 25.02.2026 ]" ++ reset)
 
 
 -- Run a file

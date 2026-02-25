@@ -24,7 +24,7 @@ $banner = @(
     "| |_/ / ___ _ __ _ __       ",
     "| ___ \/ _ \ '__| '_ \      This script will install Bern on",
     "| |_/ /  __/ |  | | | |                 your machine",
-    "\____/ \___|_|  |_| |_|         [ v.1.0.2 12.01.2025 ]"
+    "\____/ \___|_|  |_| |_|         [ v.1.1.2 24.02.2026 ]"
 )
 foreach ($line in $banner) {
     Write-Host $line -ForegroundColor Magenta

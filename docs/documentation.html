@@ -774,6 +774,10 @@ area(c)
 area(r)
 -- Output: 12.0 (3 * 4)</pre>
 
+            <h3>Iterative Data Types</h3>
+            <p>You can define Algebraic Data Types as iterable with the <code>iterative</code> keyword:</p>
+            <pre class="simple-code">adt iterative Shape = Circle Double | Rectangle Double Double</pre>
+
             <h3>The Maybe Type</h3>
             <p>A common ADT pattern for representing optional values:</p>
             
@@ -1337,6 +1341,9 @@ http_server_serve_forever(server, 50)</pre>
             <h3>Importing the Core Library</h3>
             <pre class="simple-code">import core</pre>
 
+            <h3>Importing with an alias</h3>
+            <pre class="simple-code">import core as my_core</pre>
+
             <h3>Core Library Functions</h3>
             <p>Once imported, you can use functions like <code>map</code>, <code>filter</code>, and type conversions:</p>
             
@@ -1347,6 +1354,10 @@ def isEven(x) -> x % 2 == 0
 filter([1,2,3,4,5,6,7,8,9,10], isEven)
 -- Output: [2,4,6,8,10]</pre>
 
+            <p>In the case of aliases, you should specify the alias, followed by a semicollon and the name of the given:</p>
+            <pre class="simple-code">import core as c
+c:map([1,2,3], \x -> x * 2)
+-- Output: [2,4,6]</pre>
             <h3>Type Conversion</h3>
             <p>The core library provides conversion functions for handling input:</p>
             

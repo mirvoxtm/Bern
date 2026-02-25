@@ -7,8 +7,8 @@ set -euo pipefail
 # Configuration
 readonly INSTALL_DIR="/opt/bern"
 readonly REPO="mirvoxtm/Bern"
-readonly ZIP_NAME="Bern_linux_1.1.2.zip"
-readonly VERSION="1.1.2"
+readonly ZIP_NAME="Bern_linux_1.1.3.zip"
+readonly VERSION="1.1.3"
 
 # Colors
 readonly PURPLE='\033[35m'
@@ -32,7 +32,7 @@ print_banner() {
     log "$PURPLE" "| |_/ / ___ _ __ _ __       "
     log "$PURPLE" "| ___ \/ _ \\ '__| '_ \\     This script will install Bern on"
     log "$PURPLE" "| |_/ /  __/ |  | | | |                 your machine"
-    log "$PURPLE" "\\____/ \\___|_|  |_| |_|         [ v.$VERSION 12.01.2025 ]"
+    log "$PURPLE" "\\____/ \\___|_|  |_| |_|         [ v.1.1.3 24.02.2026 ]"
     log "$GRAY" "--------------------------------------------------------------\n"
 }
 
