@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               Bern
-version:            0.1.0.0
+version:            0.1.3.0
 synopsis:           Interpreted Dynamic Typed Programming Language
 -- description:
 homepage:           mirvox.xyz
@@ -11,7 +11,7 @@ maintainer:         miguel.aguiar1906@gmail.com
 -- copyright:
 category:           Language
 build-type:         Simple
-extra-doc-files:    CHANGELOG.md
+-- extra-doc-files:    CHANGELOG.md
 -- extra-source-files:
 
 common warnings
